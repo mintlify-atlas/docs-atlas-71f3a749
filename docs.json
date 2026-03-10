@@ -36,7 +36,8 @@
             "pages": [
               "features/semantic-search",
               "features/contextual-commentary",
-              "features/verse-reading"
+              "features/verse-reading",
+              "features/browse-verses"
             ]
           },
           {
@@ -76,7 +77,9 @@
               "api/bookmarks",
               "api/history",
               "api/notes",
-              "api/daily-verse"
+              "api/daily-verse",
+              "api/generate-image",
+              "api/email-subscription"
             ]
           }
         ]

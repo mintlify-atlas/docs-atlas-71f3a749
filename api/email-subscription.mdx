@@ -1,0 +1,292 @@
+---
+title: "Email Subscription"
+description: "Manage daily verse email subscriptions with timezone support"
+icon: "envelope"
+---
+
+## Overview
+
+The Email Subscription API allows users to subscribe to daily Bhagavad Gita verse emails delivered at 8am in their local timezone. Emails are sent via Resend using a cron job system.
+
+<CardGroup cols={2}>
+  <Card title="Daily Delivery" icon="clock">
+    Emails sent at 8am in user's selected timezone
+  </Card>
+  <Card title="Smart Selection" icon="brain">
+    Prioritizes unseen verses from user's query history
+  </Card>
+  <Card title="One-Click Unsubscribe" icon="link">
+    Every email includes an unsubscribe link
+  </Card>
+  <Card title="30+ Timezones" icon="globe">
+    Support for all major worldwide timezones
+  </Card>
+</CardGroup>
+
+## Check Subscription Status
+
+<ParamField path="GET /api/email-subscription" type="endpoint">
+  Check if the current user is subscribed to daily emails
+</ParamField>
+
+### Authentication
+
+**Required**: Yes (Clerk session token)
+
+### Rate Limit
+
+10 requests per minute
+
+### Response
+
+<ResponseField name="status" type="string">
+  Always "success"
+</ResponseField>
+
+<ResponseField name="subscribed" type="boolean">
+  `true` if subscribed, `false` otherwise
+</ResponseField>
+
+<ResponseField name="timezone" type="string | null">
+  User's selected timezone (e.g., "America/New_York") or `null` if not subscribed
+</ResponseField>
+
+### Example Request
+
+```bash
+curl https://gitachat.org/api/email-subscription \
+  -H "Authorization: Bearer YOUR_SESSION_TOKEN"
+```
+
+### Example Response
+
+```json
+{
+  "status": "success",
+  "subscribed": true,
+  "timezone": "America/New_York"
+}
+```
+
+## Subscribe to Daily Emails
+
+<ParamField path="POST /api/email-subscription" type="endpoint">
+  Subscribe the current user to daily verse emails
+</ParamField>
+
+### Authentication
+
+**Required**: Yes (Clerk session token)
+
+### Rate Limit
+
+10 requests per minute
+
+### Request Body
+
+<ParamField body="timezone" type="string" required>
+  IANA timezone identifier (e.g., "America/New_York", "Europe/London", "Asia/Tokyo")
+  
+  See [List of Timezones](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) for all valid values.
+</ParamField>
+
+### Response
+
+<ResponseField name="status" type="string">
+  Always "success"
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Confirmation message
+</ResponseField>
+
+### Example Request
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST https://gitachat.org/api/email-subscription \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_SESSION_TOKEN" \
+  -d '{
+    "timezone": "America/Los_Angeles"
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('/api/email-subscription', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    timezone: 'America/Los_Angeles'
+  })
+});
+
+const data = await response.json();
+```
+
+```python Python
+import requests
+
+response = requests.post(
+    'https://gitachat.org/api/email-subscription',
+    json={'timezone': 'America/Los_Angeles'},
+    headers={'Authorization': f'Bearer {session_token}'}
+)
+
+data = response.json()
+```
+
+</CodeGroup>
+
+### Example Response
+
+```json
+{
+  "status": "success",
+  "message": "Subscribed to daily emails"
+}
+```
+
+## Unsubscribe from Emails
+
+<ParamField path="DELETE /api/email-subscription" type="endpoint">
+  Unsubscribe the current user from daily emails
+</ParamField>
+
+### Authentication
+
+**Required**: Yes (Clerk session token)
+
+### Rate Limit
+
+10 requests per minute
+
+### Response
+
+<ResponseField name="status" type="string">
+  Always "success"
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Confirmation message
+</ResponseField>
+
+### Example Request
+
+```bash
+curl -X DELETE https://gitachat.org/api/email-subscription \
+  -H "Authorization: Bearer YOUR_SESSION_TOKEN"
+```
+
+### Example Response
+
+```json
+{
+  "status": "success",
+  "message": "Unsubscribed from daily emails"
+}
+```
+
+## One-Click Email Unsubscribe
+
+<ParamField path="GET /api/unsubscribe?token=TOKEN" type="endpoint">
+  Unsubscribe via the token included in email links (no authentication required)
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="token" type="string" required>
+  Unsubscribe token included in email footer links
+</ParamField>
+
+### Response
+
+Returns an HTML page confirming the unsubscription (not JSON).
+
+### Example Request
+
+```bash
+curl https://gitachat.org/api/unsubscribe?token=abc123xyz789
+```
+
+## Email Delivery System
+
+### Cron Job Endpoint
+
+Daily emails are sent via an automated cron job:
+
+**Endpoint**: `POST /api/daily-email`  
+**Authentication**: Requires `CRON_SECRET` environment variable  
+**Schedule**: Runs every hour to catch all timezones
+
+The cron job:
+1. Queries all subscriptions where it's 8am in their timezone
+2. Fetches their daily verse (prioritizing unseen verses)
+3. Sends email via Resend
+4. Updates last_sent timestamp
+
+### Email Content
+
+Each daily email includes:
+- Chapter and verse reference
+- Full verse translation
+- Brief AI-generated summary
+- Link to view full verse on GitaChat
+- One-click unsubscribe link
+
+## Supported Timezones
+
+GitaChat supports 30+ worldwide timezones including:
+
+- **Americas**: America/New_York, America/Chicago, America/Denver, America/Los_Angeles, America/Toronto, America/Vancouver, America/Mexico_City, America/Sao_Paulo
+- **Europe**: Europe/London, Europe/Paris, Europe/Berlin, Europe/Madrid, Europe/Rome, Europe/Amsterdam, Europe/Brussels, Europe/Stockholm
+- **Asia**: Asia/Kolkata, Asia/Dubai, Asia/Tokyo, Asia/Shanghai, Asia/Hong_Kong, Asia/Singapore, Asia/Seoul, Asia/Bangkok, Asia/Jakarta
+- **Pacific**: Australia/Sydney, Australia/Melbourne, Pacific/Auckland, Pacific/Fiji
+- **Africa**: Africa/Cairo, Africa/Johannesburg
+
+## Database Schema
+
+Subscriptions are stored in Supabase `email_subscribers` table:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| user_id | text | Primary key (Clerk user ID) |
+| email | text | User's email address |
+| timezone | text | IANA timezone identifier |
+| subscribed_at | timestamp | Subscription timestamp |
+| last_sent | timestamp | Last email sent timestamp |
+
+## Error Codes
+
+| Status Code | Description |
+|-------------|-------------|
+| 200 | Success |
+| 400 | Invalid timezone or missing parameters |
+| 401 | Unauthorized (authentication required) |
+| 429 | Rate limit exceeded (10/minute) |
+| 500 | Database error or email service failure |
+
+## Usage Notes
+
+<Note>
+Users must have a verified email address in Clerk to receive daily emails.
+</Note>
+
+<Tip>
+The timezone setting applies to the email delivery time. The daily verse itself is consistent across all timezones on any given UTC date.
+</Tip>
+
+<Warning>
+Unsubscribe tokens are one-time use and expire after successful unsubscription.
+</Warning>
+
+## Implementation Reference
+
+**Source Files**:
+- Subscription API: `frontend/app/api/email-subscription/route.ts`
+- Unsubscribe: `frontend/app/api/unsubscribe/route.ts`
+- Cron job: `frontend/app/api/daily-email/route.ts`
+- Settings UI: `frontend/app/settings/page.tsx`

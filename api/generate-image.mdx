@@ -1,0 +1,256 @@
+---
+title: "Generate Image"
+description: "Generate AI-powered anime-style verse visualizations using Replicate"
+icon: "image"
+---
+
+## Overview
+
+The Generate Image API creates beautiful anime-style visualizations of Bhagavad Gita verses using AI. Images are generated via Replicate and cached in Supabase to avoid regeneration.
+
+<Note>
+This endpoint is **rate limited to 5 requests per hour** per user to manage AI generation costs.
+</Note>
+
+## Generate Image
+
+<ParamField path="POST /api/generate-image" type="endpoint">
+  Generate an anime-style image for a specific verse
+</ParamField>
+
+### Authentication
+
+**Required**: Yes (Clerk session token)
+
+### Request Body
+
+<ParamField body="chapter" type="number" required>
+  Chapter number (1-18)
+</ParamField>
+
+<ParamField body="verse" type="number" required>
+  Verse number (1-78)
+</ParamField>
+
+### Response
+
+<ResponseField name="status" type="string">
+  Always "success"
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Image generation result
+  
+  <Expandable title="data properties">
+    <ResponseField name="id" type="string">
+      Unique image ID for accessing the shareable page
+    </ResponseField>
+    
+    <ResponseField name="chapter" type="number">
+      Chapter number of the verse
+    </ResponseField>
+    
+    <ResponseField name="verse" type="number">
+      Verse number
+    </ResponseField>
+    
+    <ResponseField name="url" type="string">
+      Direct URL to the generated image
+    </ResponseField>
+    
+    <ResponseField name="created_at" type="string">
+      ISO 8601 timestamp of generation
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example Request
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST https://gitachat.org/api/generate-image \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_SESSION_TOKEN" \
+  -d '{
+    "chapter": 2,
+    "verse": 47
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('/api/generate-image', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    chapter: 2,
+    verse: 47
+  })
+});
+
+const data = await response.json();
+console.log(data.data.url);
+```
+
+```python Python
+import requests
+
+response = requests.post(
+    'https://gitachat.org/api/generate-image',
+    json={
+        'chapter': 2,
+        'verse': 47
+    },
+    headers={'Authorization': f'Bearer {session_token}'}
+)
+
+data = response.json()
+print(data['data']['url'])
+```
+
+</CodeGroup>
+
+### Example Response
+
+```json
+{
+  "status": "success",
+  "data": {
+    "id": "cm7x8y9z10001abc123def456",
+    "chapter": 2,
+    "verse": 47,
+    "url": "https://replicate.delivery/pbxt/abc123xyz789.png",
+    "created_at": "2024-03-10T12:34:56.789Z"
+  }
+}
+```
+
+## Check Image Existence
+
+<ParamField path="GET /api/generate-image?chapter=X&verse=Y" type="endpoint">
+  Check if an image already exists for a verse (no authentication required)
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="chapter" type="number" required>
+  Chapter number (1-18)
+</ParamField>
+
+<ParamField query="verse" type="number" required>
+  Verse number (1-78)
+</ParamField>
+
+### Response
+
+Returns the existing image data if found, or `null` if no image exists.
+
+### Example Request
+
+```bash
+curl https://gitachat.org/api/generate-image?chapter=2&verse=47
+```
+
+### Example Response (Image Exists)
+
+```json
+{
+  "status": "success",
+  "data": {
+    "id": "cm7x8y9z10001abc123def456",
+    "chapter": 2,
+    "verse": 47,
+    "url": "https://replicate.delivery/pbxt/abc123xyz789.png",
+    "created_at": "2024-03-10T12:34:56.789Z"
+  }
+}
+```
+
+### Example Response (No Image)
+
+```json
+{
+  "status": "success",
+  "data": null
+}
+```
+
+## Technical Details
+
+### AI Model
+
+- **Provider**: Replicate
+- **Model**: Anime-style image generation
+- **Generation Time**: 15-30 seconds
+- **Output Format**: PNG image
+
+### Storage
+
+Images are stored in Supabase with the following schema:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| id | uuid | Primary key |
+| chapter | integer | Chapter number |
+| verse | integer | Verse number |
+| url | text | Replicate image URL |
+| created_at | timestamp | Generation timestamp |
+
+**Unique Constraint**: One image per (chapter, verse) combination
+
+### Rate Limiting
+
+**POST /api/generate-image**: 5 requests per hour per user
+
+This strict rate limit helps manage AI generation costs while still providing reasonable access for users.
+
+### Caching Strategy
+
+1. Before generating, check if image exists for the verse
+2. If exists, return cached URL immediately
+3. If not exists, generate via Replicate and store in Supabase
+4. Subsequent requests return the cached image
+
+## Sharing Generated Images
+
+Generated images can be shared via the shareable page:
+
+```
+https://gitachat.org/image/[image_id]
+```
+
+This page includes:
+- Full-size image display
+- Download as PNG button
+- Open Graph metadata for social media previews
+- Link back to the original verse
+
+## Error Codes
+
+| Status Code | Description |
+|-------------|-------------|
+| 200 | Success |
+| 400 | Invalid chapter/verse numbers |
+| 401 | Unauthorized (authentication required for POST) |
+| 429 | Rate limit exceeded (5/hour) |
+| 500 | Image generation failed or Replicate API error |
+
+## Usage Notes
+
+<Warning>
+Image generation can take 15-30 seconds. Implement appropriate loading states in your UI.
+</Warning>
+
+<Tip>
+Always check for existing images with the GET endpoint before generating new ones to avoid unnecessary API calls and rate limit consumption.
+</Tip>
+
+## Implementation Reference
+
+**Source**: `frontend/app/api/generate-image/route.ts`
+
+- POST handler: Lines 11-137
+- GET handler: Lines 140-177
+- Rate limiter: Line 9
