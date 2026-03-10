@@ -1,0 +1,345 @@
+---
+title: "Environment Variables"
+description: "Complete guide to configuring environment variables for GitaChat frontend and backend"
+---
+
+## Overview
+
+GitaChat requires different environment variables for the frontend and backend services. This guide explains each variable, where to obtain the necessary API keys, and how to configure them properly.
+
+## Frontend Environment Variables
+
+Create a `.env.local` file in the `frontend/` directory with the following variables:
+
+### Configuration File
+
+```bash frontend/.env.local
+BACKEND_URL=http://localhost:8000
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_xxxxx
+CLERK_SECRET_KEY=sk_test_xxxxx
+NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=xxxxx
+```
+
+### Variable Reference
+
+<CardGroup cols={1}>
+  <Card title="BACKEND_URL" icon="link">
+    **Purpose**: URL of the FastAPI backend server
+    
+    **Local Development**: `http://localhost:8000`
+    
+    **Production**: Your Railway deployment URL (e.g., `https://your-app.up.railway.app`)
+    
+    **Required**: Yes
+  </Card>
+
+  <Card title="NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY" icon="key">
+    **Purpose**: Public key for Clerk authentication (client-side)
+    
+    **Format**: `pk_test_xxxxx` (test) or `pk_live_xxxxx` (production)
+    
+    **Required**: Yes
+    
+    **Prefix**: `NEXT_PUBLIC_` makes this variable accessible in the browser
+  </Card>
+
+  <Card title="CLERK_SECRET_KEY" icon="lock">
+    **Purpose**: Secret key for Clerk authentication (server-side)
+    
+    **Format**: `sk_test_xxxxx` (test) or `sk_live_xxxxx` (production)
+    
+    **Required**: Yes
+    
+    **Security**: Keep this secret and never expose in client-side code
+  </Card>
+
+  <Card title="NEXT_PUBLIC_SUPABASE_URL" icon="database">
+    **Purpose**: Supabase project URL for storing user query history
+    
+    **Format**: `https://xxxxx.supabase.co`
+    
+    **Required**: Yes
+    
+    **Prefix**: `NEXT_PUBLIC_` makes this variable accessible in the browser
+  </Card>
+
+  <Card title="SUPABASE_SERVICE_ROLE_KEY" icon="shield">
+    **Purpose**: Supabase service role key for server-side database operations
+    
+    **Format**: Long alphanumeric string (starts with `eyJ`)
+    
+    **Required**: Yes
+    
+    **Security**: Bypasses Row Level Security (RLS) - keep confidential
+  </Card>
+</CardGroup>
+
+### Getting Frontend API Keys
+
+<Steps>
+  <Step title="Clerk Authentication">
+    1. Create a free account at [clerk.com](https://clerk.com)
+    2. Create a new application
+    3. Go to **API Keys** in the dashboard
+    4. Copy the **Publishable key** and **Secret key**
+    5. For production, switch to **Live** keys instead of **Test** keys
+  </Step>
+
+  <Step title="Supabase Database">
+    1. Create a free account at [supabase.com](https://supabase.com)
+    2. Create a new project
+    3. Go to **Project Settings** > **API**
+    4. Copy the **Project URL** (for `NEXT_PUBLIC_SUPABASE_URL`)
+    5. Copy the **service_role** key (for `SUPABASE_SERVICE_ROLE_KEY`)
+    
+    <Note>
+      The service role key is under the "Project API keys" section. Do NOT use the `anon` public key.
+    </Note>
+  </Step>
+</Steps>
+
+## Backend Environment Variables
+
+Create a `.env` file in the `backend/` directory with the following variables:
+
+### Configuration File
+
+```bash backend/.env
+PINECONE_API_KEY=xxxxx-xxxxx-xxxxx
+PINECONE_INDEX=gitachat
+GPT_KEY=sk-xxxxx
+```
+
+### Variable Reference
+
+<CardGroup cols={1}>
+  <Card title="PINECONE_API_KEY" icon="database">
+    **Purpose**: API key for Pinecone vector database
+    
+    **Format**: UUID-style key with dashes
+    
+    **Required**: Yes
+    
+    **Used for**: Storing and querying 700+ verse embeddings (768-dimensional vectors)
+  </Card>
+
+  <Card title="PINECONE_INDEX" icon="list">
+    **Purpose**: Name of your Pinecone index containing the Gita verses
+    
+    **Default**: `gitachat`
+    
+    **Required**: Yes
+    
+    **Index Specs**:
+    - Dimensions: 768 (BGE-base-en-v1.5)
+    - Metric: Cosine similarity
+    - ~700 vectors (one per verse)
+  </Card>
+
+  <Card title="GPT_KEY" icon="brain">
+    **Purpose**: OpenAI API key for generating contextual commentary
+    
+    **Format**: `sk-xxxxx`
+    
+    **Required**: Yes
+    
+    **Used for**: Creating tailored explanations that connect verses to user questions
+    
+    **Model**: Uses GPT-4 for high-quality contextual analysis
+  </Card>
+</CardGroup>
+
+### Getting Backend API Keys
+
+<Steps>
+  <Step title="Pinecone Vector Database">
+    1. Create a free account at [pinecone.io](https://www.pinecone.io)
+    2. Create a new project
+    3. Go to **API Keys** and copy your API key
+    4. Create a new index:
+       - Name: `gitachat` (or your preferred name)
+       - Dimensions: `768`
+       - Metric: `cosine`
+    5. You'll need to populate this index with verse embeddings
+    
+    <Warning>
+      The free tier has limitations. For production use with 700+ verses, consider the Starter plan.
+    </Warning>
+  </Step>
+
+  <Step title="OpenAI API">
+    1. Create an account at [platform.openai.com](https://platform.openai.com)
+    2. Go to **API Keys** section
+    3. Click **Create new secret key**
+    4. Copy the key immediately (it won't be shown again)
+    5. Add billing information to enable API access
+    
+    <Note>
+      GitaChat uses GPT-4 for contextual commentary. Ensure your account has access to GPT-4 API.
+    </Note>
+  </Step>
+</Steps>
+
+## Environment Variable Templates
+
+### Frontend Template
+
+```bash .env.local.example
+# Backend API URL
+BACKEND_URL=http://localhost:8000
+
+# Clerk Authentication
+# Get from: https://dashboard.clerk.com
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_xxxxx
+CLERK_SECRET_KEY=sk_test_xxxxx
+
+# Supabase Database
+# Get from: https://app.supabase.com/project/_/settings/api
+NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=xxxxx
+```
+
+### Backend Template
+
+```bash .env.example
+# Pinecone Vector Database
+# Get from: https://app.pinecone.io
+PINECONE_API_KEY=xxxxx-xxxxx-xxxxx
+PINECONE_INDEX=gitachat
+
+# OpenAI API
+# Get from: https://platform.openai.com/api-keys
+GPT_KEY=sk-xxxxx
+```
+
+## Validation
+
+The backend validates all required environment variables at startup. If any are missing, you'll see clear error messages:
+
+```python
+# From config.py
+if not PINECONE_API_KEY:
+    raise ValueError("PINECONE_API_KEY environment variable is required")
+if not PINECONE_INDEX:
+    raise ValueError("PINECONE_INDEX environment variable is required")
+if not GPT_KEY:
+    raise ValueError("GPT_KEY environment variable is required")
+```
+
+## Security Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Never Commit Secrets" icon="ban">
+    Add `.env`, `.env.local`, and `.env.production` to your `.gitignore`
+    
+    ```bash .gitignore
+    .env
+    .env.local
+    .env.production
+    ```
+  </Card>
+
+  <Card title="Use Different Keys" icon="arrows-split">
+    Use separate API keys for development and production environments
+    
+    - Development: Test/sandbox keys
+    - Production: Live/production keys
+  </Card>
+
+  <Card title="Rotate Regularly" icon="rotate">
+    Periodically rotate your API keys, especially if:
+    - Keys are accidentally exposed
+    - Team members leave
+    - Suspicious activity detected
+  </Card>
+
+  <Card title="Limit Permissions" icon="shield-halved">
+    Use the minimum required permissions:
+    - Supabase: Service role only for server
+    - OpenAI: Set usage limits and alerts
+    - Pinecone: Read-only if not upserting
+  </Card>
+</CardGroup>
+
+## Environment-Specific Configuration
+
+### Development
+
+```bash
+# Frontend
+BACKEND_URL=http://localhost:8000
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_xxxxx
+CLERK_SECRET_KEY=sk_test_xxxxx
+
+# Backend  
+PINECONE_API_KEY=your-dev-key
+PINECONE_INDEX=gitachat-dev
+GPT_KEY=sk-xxxxx
+```
+
+### Production
+
+```bash
+# Frontend
+BACKEND_URL=https://api.gitachat.org
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_live_xxxxx
+CLERK_SECRET_KEY=sk_live_xxxxx
+
+# Backend
+PINECONE_API_KEY=your-prod-key
+PINECONE_INDEX=gitachat-prod
+GPT_KEY=sk-xxxxx
+```
+
+## Troubleshooting
+
+<CardGroup cols={2}>
+  <Card title="401 Unauthorized" icon="lock">
+    **Symptom**: Authentication errors
+    
+    **Solution**: 
+    - Verify Clerk keys are correct
+    - Check if using test vs. live keys
+    - Ensure keys match your environment
+  </Card>
+
+  <Card title="CORS Errors" icon="shield">
+    **Symptom**: Frontend can't reach backend
+    
+    **Solution**:
+    - Verify `BACKEND_URL` is correct
+    - Check backend CORS configuration in `main.py`
+    - Ensure backend is running
+  </Card>
+
+  <Card title="Pinecone Connection Failed" icon="database">
+    **Symptom**: Vector search not working
+    
+    **Solution**:
+    - Verify `PINECONE_API_KEY` is valid
+    - Check `PINECONE_INDEX` name matches
+    - Ensure index dimensions are 768
+  </Card>
+
+  <Card title="OpenAI Rate Limit" icon="gauge-high">
+    **Symptom**: Commentary generation fails
+    
+    **Solution**:
+    - Check OpenAI account billing
+    - Verify API key has GPT-4 access
+    - Review rate limits and quotas
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Local Setup" icon="laptop-code" href="/development/local-setup">
+    Complete the local development setup with these environment variables
+  </Card>
+  
+  <Card title="Deployment" icon="rocket" href="/development/deployment">
+    Configure environment variables in Vercel and Railway for production
+  </Card>
+</CardGroup>

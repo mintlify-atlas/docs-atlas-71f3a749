@@ -1,0 +1,228 @@
+---
+title: 'History API'
+description: 'Access and manage user query history'
+---
+
+## History Endpoints
+
+Manage query history for authenticated users. Track all previous queries and their results.
+
+## GET /api/history
+
+Retrieve the complete query history for the authenticated user.
+
+### Authentication
+
+Requires Clerk authentication. Include authentication headers with the request.
+
+### Response
+
+Returns an array of previous queries sorted by creation date (newest first).
+
+<ResponseField name="[].id" type="integer">
+  Unique history entry ID
+</ResponseField>
+
+<ResponseField name="[].user_id" type="string">
+  User's unique identifier
+</ResponseField>
+
+<ResponseField name="[].query" type="string">
+  The original search query text
+</ResponseField>
+
+<ResponseField name="[].chapter" type="integer">
+  Chapter number of the matched verse (1-18)
+</ResponseField>
+
+<ResponseField name="[].verse" type="integer">
+  Verse number of the matched verse
+</ResponseField>
+
+<ResponseField name="[].translation" type="string">
+  English translation of the matched verse
+</ResponseField>
+
+<ResponseField name="[].summarized_commentary" type="string">
+  Contextual commentary generated for the query
+</ResponseField>
+
+<ResponseField name="[].full_commentary" type="string">
+  Complete traditional commentary (may be null)
+</ResponseField>
+
+<ResponseField name="[].created_at" type="string">
+  ISO 8601 timestamp when the query was made
+</ResponseField>
+
+### Response Example
+
+```json
+[
+  {
+    "id": 456,
+    "user_id": "user_abc123",
+    "query": "How do I overcome fear and anxiety?",
+    "chapter": 2,
+    "verse": 47,
+    "translation": "You have the right to perform your prescribed duties...",
+    "summarized_commentary": "When facing fear and anxiety, focus on your actions...",
+    "full_commentary": "...",
+    "created_at": "2024-03-10T12:34:56.789Z"
+  },
+  {
+    "id": 455,
+    "user_id": "user_abc123",
+    "query": "What is the meaning of life?",
+    "chapter": 3,
+    "verse": 19,
+    "translation": "Therefore, without attachment, perform always the work...",
+    "summarized_commentary": "The meaning of life is found in performing one's duty...",
+    "full_commentary": null,
+    "created_at": "2024-03-09T10:20:30.123Z"
+  }
+]
+```
+
+### Error Responses
+
+| Status Code | Description |
+|-------------|-------------|
+| 401 | Unauthorized - authentication required |
+| 429 | Rate limit exceeded (30 requests per minute) |
+| 500 | Failed to fetch history |
+| 503 | Database not configured |
+
+---
+
+## DELETE /api/history
+
+Clear all query history for the authenticated user.
+
+### Authentication
+
+Requires Clerk authentication.
+
+### Request
+
+No parameters required. Deletes all history entries for the authenticated user.
+
+### Response
+
+```json
+{
+  "success": true
+}
+```
+
+### Error Responses
+
+| Status Code | Description |
+|-------------|-------------|
+| 401 | Unauthorized |
+| 429 | Rate limit exceeded (5 requests per minute) |
+| 500 | Failed to clear history |
+| 503 | Database not configured |
+
+---
+
+## Rate Limiting
+
+- **GET**: 30 requests per minute per client
+- **DELETE**: 5 requests per minute per client (stricter limit for destructive operation)
+
+## Code Examples
+
+<CodeGroup>
+
+```bash cURL - Get History
+curl -X GET https://gitachat.org/api/history \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+```bash cURL - Clear History
+curl -X DELETE https://gitachat.org/api/history \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+```javascript JavaScript
+// Get query history
+const history = await fetch('https://gitachat.org/api/history', {
+  headers: {
+    'Authorization': `Bearer ${token}`
+  }
+}).then(r => r.json());
+
+console.log(`Found ${history.length} previous queries`);
+
+// Clear all history
+await fetch('https://gitachat.org/api/history', {
+  method: 'DELETE',
+  headers: {
+    'Authorization': `Bearer ${token}`
+  }
+});
+```
+
+```python Python
+import requests
+
+headers = {'Authorization': f'Bearer {token}'}
+
+# Get history
+response = requests.get(
+    'https://gitachat.org/api/history',
+    headers=headers
+)
+history = response.json()
+
+# Clear history
+response = requests.delete(
+    'https://gitachat.org/api/history',
+    headers=headers
+)
+```
+
+```typescript TypeScript
+interface HistoryEntry {
+  id: number;
+  user_id: string;
+  query: string;
+  chapter: number;
+  verse: number;
+  translation: string;
+  summarized_commentary: string;
+  full_commentary: string | null;
+  created_at: string;
+}
+
+// Get history
+const response = await fetch('https://gitachat.org/api/history', {
+  headers: { 'Authorization': `Bearer ${token}` }
+});
+const history: HistoryEntry[] = await response.json();
+
+// Clear history
+await fetch('https://gitachat.org/api/history', {
+  method: 'DELETE',
+  headers: { 'Authorization': `Bearer ${token}` }
+});
+```
+
+</CodeGroup>
+
+### How History is Populated
+
+History entries are automatically created when users make queries via the `/api/query` endpoint:
+
+1. User submits a query to `/api/query`
+2. Backend returns a matched verse with commentary
+3. Frontend saves the query and result to history (fire-and-forget)
+4. History write failures don't block the query response
+
+### Privacy Notes
+
+- History is private to each user
+- Other users cannot access your query history
+- Clearing history is permanent and cannot be undone
+- History is stored in Supabase with user authentication

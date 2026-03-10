@@ -1,0 +1,202 @@
+---
+title: "Search History"
+description: "Track and revisit your past verse searches and queries in GitaChat"
+---
+
+## Overview
+
+GitaChat automatically tracks your search history, allowing you to revisit verses you've previously explored. This feature helps you keep track of your spiritual journey and easily return to verses that were meaningful to you.
+
+## How History Works
+
+<CardGroup cols={2}>
+  <Card title="Automatic Tracking" icon="clock">
+    Every search query is automatically saved to your history
+  </Card>
+  <Card title="Chronological Order" icon="arrow-down-1-9">
+    View your searches in reverse chronological order (newest first)
+  </Card>
+  <Card title="Easy Access" icon="rotate-left">
+    Quickly revisit verses you've searched before
+  </Card>
+  <Card title="Clear History" icon="trash-can">
+    Delete all history with a single action
+  </Card>
+</CardGroup>
+
+## API Endpoint
+
+The history API is available at `/api/history` and supports two HTTP methods:
+
+### Get Search History
+
+Retrieve all search queries for the authenticated user.
+
+**Endpoint:** `GET /api/history`
+
+**Authentication:** Required (Clerk)
+
+**Rate Limit:** 30 requests per minute per client
+
+**Response:**
+```json
+[
+  {
+    "id": "uuid",
+    "user_id": "user_123",
+    "chapter": 2,
+    "verse": 47,
+    "query": "duty without attachment",
+    "created_at": "2024-03-10T12:00:00Z"
+  },
+  {
+    "id": "uuid",
+    "user_id": "user_123",
+    "chapter": 18,
+    "verse": 66,
+    "query": "surrender to Krishna",
+    "created_at": "2024-03-10T11:30:00Z"
+  }
+]
+```
+
+**Response Fields:**
+- `id`: Unique identifier for the history entry
+- `user_id`: Clerk user identifier
+- `chapter`: Chapter number of the verse
+- `verse`: Verse number
+- `query`: The original search query text
+- `created_at`: Timestamp when the search was performed
+
+### Clear All History
+
+Delete all search history for the authenticated user.
+
+**Endpoint:** `DELETE /api/history`
+
+**Authentication:** Required (Clerk)
+
+**Rate Limit:** 5 requests per minute per client (stricter for destructive operations)
+
+**Success Response (200):**
+```json
+{
+  "success": true
+}
+```
+
+## Data Storage
+
+Search history is stored in the `query_history` table in Supabase:
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | UUID | Primary key |
+| `user_id` | String | Clerk user identifier |
+| `chapter` | Integer | Chapter number (1-18) |
+| `verse` | Integer | Verse number |
+| `query` | Text | Original search query |
+| `created_at` | Timestamp | When the search was performed |
+
+The table is indexed on `user_id` and `created_at` for efficient querying.
+
+## Implementation Details
+
+The history system is implemented in `/app/api/history/route.ts`:
+
+<CardGroup cols={2}>
+  <Card title="Separate Rate Limits" icon="gauge-high">
+    GET: 30 req/min, DELETE: 5 req/min to prevent abuse
+  </Card>
+  <Card title="Automatic Recording" icon="pen-to-square">
+    Searches are logged automatically by the main query endpoint
+  </Card>
+  <Card title="User Isolation" icon="user-lock">
+    Each user can only access their own history
+  </Card>
+  <Card title="Ordered Results" icon="arrow-down-9-1">
+    Results always sorted by most recent first
+  </Card>
+</CardGroup>
+
+## How History is Recorded
+
+When you search for a verse or topic in GitaChat, the query is automatically saved to your history through the main search API. This happens seamlessly in the background without any action required from you.
+
+The recording process:
+1. User submits a search query
+2. GitaChat processes the query and returns relevant verses
+3. Query details (chapter, verse, query text) are saved to `query_history`
+4. History entry includes timestamp for chronological sorting
+
+## Daily Verse Integration
+
+Your search history also plays a role in the daily verse feature. The daily verse selection algorithm:
+
+1. Checks which verses you've already seen (from history)
+2. Prioritizes showing you new, unseen verses
+3. Falls back to random selection if all verses have been seen
+
+This ensures you receive fresh content daily and gradually explore the entire Bhagavad Gita.
+
+## User Interface
+
+The history feature integrates into the GitaChat UI:
+
+1. **View History**: Access a dedicated history page showing all past searches
+2. **Click to Revisit**: Click any history item to view that verse again
+3. **Clear All**: Button to delete entire history if desired
+4. **Timestamp Display**: See when each search was performed
+
+## Privacy and Data Management
+
+<Card title="Privacy Controls" icon="shield-halved">
+  - Only you can see your search history
+  - History is tied to your Clerk user ID
+  - Clear all history anytime with DELETE endpoint
+  - History data is stored securely in Supabase
+</Card>
+
+## Rate Limiting
+
+Different rate limits apply to different operations:
+
+| Operation | Rate Limit | Purpose |
+|-----------|------------|---------|
+| GET (view history) | 30 requests/min | Normal browsing usage |
+| DELETE (clear history) | 5 requests/min | Prevent accidental mass deletions |
+
+## Error Handling
+
+Common error scenarios:
+
+| Error | Status | Description |
+|-------|--------|-------------|
+| Unauthorized | 401 | User not logged in |
+| Too many requests | 429 | Rate limit exceeded |
+| Database not configured | 503 | Supabase connection unavailable |
+| Failed to fetch/clear | 500 | Server error occurred |
+
+## Use Cases
+
+<CardGroup cols={2}>
+  <Card title="Personal Review" icon="book-open">
+    Review verses you've explored in your spiritual journey
+  </Card>
+  <Card title="Revisit Favorites" icon="star">
+    Quickly find verses that resonated with you before
+  </Card>
+  <Card title="Study Patterns" icon="chart-line">
+    See which topics you search for most frequently
+  </Card>
+  <Card title="Daily Verse Optimization" icon="sparkles">
+    History helps ensure you see new verses daily
+  </Card>
+</CardGroup>
+
+## Best Practices
+
+- **Regular Review**: Periodically review your history to reinforce learning
+- **Bookmark Important Verses**: Use bookmarks for verses you want to save permanently
+- **Clear Old History**: Clear history periodically if you want a fresh start
+- **Combine with Notes**: Add notes to verses in your history for deeper reflection

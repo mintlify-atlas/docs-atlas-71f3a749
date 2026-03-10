@@ -1,0 +1,314 @@
+---
+title: 'Notes API'
+description: 'Create, retrieve, update, and delete personal notes on verses'
+---
+
+## Notes Endpoints
+
+Manage personal notes on verses. All endpoints require authentication.
+
+## GET /api/notes
+
+Retrieve notes for the authenticated user. Can fetch a specific note or all notes.
+
+### Authentication
+
+Requires Clerk authentication.
+
+### Query Parameters
+
+<ParamField query="chapter" type="integer">
+  Chapter number (1-18). If provided with verse, fetches a specific note.
+</ParamField>
+
+<ParamField query="verse" type="integer">
+  Verse number. If provided with chapter, fetches a specific note.
+</ParamField>
+
+### Behavior
+
+- **With chapter and verse**: Returns a single note object or null if no note exists
+- **Without parameters**: Returns all notes for the user as an array
+
+### Response - Single Note
+
+<ResponseField name="id" type="integer">
+  Unique note ID
+</ResponseField>
+
+<ResponseField name="user_id" type="string">
+  User's unique identifier
+</ResponseField>
+
+<ResponseField name="chapter" type="integer">
+  Chapter number (1-18)
+</ResponseField>
+
+<ResponseField name="verse" type="integer">
+  Verse number
+</ResponseField>
+
+<ResponseField name="note_text" type="string">
+  The note content (trimmed)
+</ResponseField>
+
+<ResponseField name="created_at" type="string">
+  ISO 8601 timestamp when the note was created
+</ResponseField>
+
+<ResponseField name="updated_at" type="string">
+  ISO 8601 timestamp when the note was last updated
+</ResponseField>
+
+### Response Example - Single Note
+
+```json
+{
+  "id": 789,
+  "user_id": "user_abc123",
+  "chapter": 2,
+  "verse": 47,
+  "note_text": "This verse reminds me to focus on my work without worrying about outcomes. Very applicable to my current project.",
+  "created_at": "2024-03-10T12:34:56.789Z",
+  "updated_at": "2024-03-10T14:20:30.123Z"
+}
+```
+
+### Response Example - All Notes
+
+```json
+[
+  {
+    "id": 789,
+    "user_id": "user_abc123",
+    "chapter": 2,
+    "verse": 47,
+    "note_text": "Focus on actions, not results.",
+    "created_at": "2024-03-10T12:34:56.789Z",
+    "updated_at": "2024-03-10T14:20:30.123Z"
+  },
+  {
+    "id": 790,
+    "user_id": "user_abc123",
+    "chapter": 6,
+    "verse": 5,
+    "note_text": "Self-control is key to spiritual growth.",
+    "created_at": "2024-03-09T10:15:00.000Z",
+    "updated_at": "2024-03-09T10:15:00.000Z"
+  }
+]
+```
+
+### Error Responses
+
+| Status Code | Description |
+|-------------|-------------|
+| 400 | Invalid chapter or verse |
+| 401 | Unauthorized |
+| 500 | Failed to fetch notes |
+| 503 | Database not configured |
+
+---
+
+## POST /api/notes
+
+Create a new note or update an existing note for a verse (upsert operation).
+
+### Authentication
+
+Requires Clerk authentication.
+
+### Request
+
+<ParamField body="chapter" type="integer" required>
+  Chapter number (1-18)
+</ParamField>
+
+<ParamField body="verse" type="integer" required>
+  Verse number (must be valid for the chapter)
+</ParamField>
+
+<ParamField body="note_text" type="string" required>
+  The note content. Maximum 5,000 characters (trimmed).
+</ParamField>
+
+### Request Body Example
+
+```json
+{
+  "chapter": 2,
+  "verse": 47,
+  "note_text": "This verse reminds me to focus on my work without worrying about outcomes."
+}
+```
+
+### Response
+
+Returns the created or updated note object.
+
+```json
+{
+  "id": 789,
+  "user_id": "user_abc123",
+  "chapter": 2,
+  "verse": 47,
+  "note_text": "This verse reminds me to focus on my work without worrying about outcomes.",
+  "created_at": "2024-03-10T12:34:56.789Z",
+  "updated_at": "2024-03-10T12:34:56.789Z"
+}
+```
+
+### Error Responses
+
+| Status Code | Description |
+|-------------|-------------|
+| 400 | Missing required fields, invalid chapter/verse, or note text too long |
+| 401 | Unauthorized |
+| 500 | Failed to save note |
+| 503 | Database not configured |
+
+---
+
+## DELETE /api/notes
+
+Delete a note for a specific verse.
+
+### Authentication
+
+Requires Clerk authentication.
+
+### Query Parameters
+
+<ParamField query="chapter" type="integer" required>
+  Chapter number (1-18)
+</ParamField>
+
+<ParamField query="verse" type="integer" required>
+  Verse number
+</ParamField>
+
+### Response
+
+```json
+{
+  "success": true
+}
+```
+
+### Error Responses
+
+| Status Code | Description |
+|-------------|-------------|
+| 400 | Invalid chapter or verse |
+| 401 | Unauthorized |
+| 500 | Failed to delete note |
+| 503 | Database not configured |
+
+---
+
+## Code Examples
+
+<CodeGroup>
+
+```bash cURL - Get Specific Note
+curl -X GET "https://gitachat.org/api/notes?chapter=2&verse=47" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+```bash cURL - Get All Notes
+curl -X GET https://gitachat.org/api/notes \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+```bash cURL - Create/Update Note
+curl -X POST https://gitachat.org/api/notes \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -d '{
+    "chapter": 2,
+    "verse": 47,
+    "note_text": "Focus on actions, not results."
+  }'
+```
+
+```bash cURL - Delete Note
+curl -X DELETE "https://gitachat.org/api/notes?chapter=2&verse=47" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+```javascript JavaScript
+// Get specific note
+const note = await fetch('https://gitachat.org/api/notes?chapter=2&verse=47', {
+  headers: { 'Authorization': `Bearer ${token}` }
+}).then(r => r.json());
+
+// Get all notes
+const allNotes = await fetch('https://gitachat.org/api/notes', {
+  headers: { 'Authorization': `Bearer ${token}` }
+}).then(r => r.json());
+
+// Create or update note
+const savedNote = await fetch('https://gitachat.org/api/notes', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`
+  },
+  body: JSON.stringify({
+    chapter: 2,
+    verse: 47,
+    note_text: 'Focus on actions, not results.'
+  })
+}).then(r => r.json());
+
+// Delete note
+await fetch('https://gitachat.org/api/notes?chapter=2&verse=47', {
+  method: 'DELETE',
+  headers: { 'Authorization': `Bearer ${token}` }
+});
+```
+
+```typescript TypeScript
+interface Note {
+  id: number;
+  user_id: string;
+  chapter: number;
+  verse: number;
+  note_text: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// Get specific note
+const response = await fetch(
+  'https://gitachat.org/api/notes?chapter=2&verse=47',
+  { headers: { 'Authorization': `Bearer ${token}` } }
+);
+const note: Note | null = await response.json();
+
+// Create or update note
+const saveResponse = await fetch('https://gitachat.org/api/notes', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`
+  },
+  body: JSON.stringify({
+    chapter: 2,
+    verse: 47,
+    note_text: 'My personal insight'
+  })
+});
+const savedNote: Note = await saveResponse.json();
+```
+
+</CodeGroup>
+
+### Notes
+
+- Notes are unique per user, chapter, and verse combination
+- Creating a note for an existing verse will update the existing note (upsert)
+- Note text is automatically trimmed of leading/trailing whitespace
+- Maximum note length: 5,000 characters
+- Notes are sorted by updated_at when fetching all notes (newest first)
+- Empty or whitespace-only notes cannot be saved

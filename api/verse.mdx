@@ -1,0 +1,162 @@
+---
+title: 'Verse Endpoint'
+description: 'Retrieve a specific verse by chapter and verse number'
+---
+
+## POST /api/verse
+
+Fetch a specific verse from the Bhagavad Gita by chapter and verse number.
+
+### Request
+
+<ParamField body="chapter" type="integer" required>
+  Chapter number. Must be between 1 and 18.
+</ParamField>
+
+<ParamField body="verse" type="integer" required>
+  Verse number within the chapter. Must be between 1 and 78 (maximum verses in chapter 18).
+</ParamField>
+
+### Request Body Example
+
+```json
+{
+  "chapter": 2,
+  "verse": 47
+}
+```
+
+### Response
+
+<ResponseField name="status" type="string">
+  Response status - always "success" for successful requests
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Object containing verse details
+</ResponseField>
+
+<ResponseField name="data.chapter" type="integer">
+  Chapter number (1-18)
+</ResponseField>
+
+<ResponseField name="data.verse" type="integer">
+  Verse number within the chapter
+</ResponseField>
+
+<ResponseField name="data.translation" type="string">
+  English translation of the verse
+</ResponseField>
+
+<ResponseField name="data.summarized_commentary" type="string">
+  Summary commentary on the verse
+</ResponseField>
+
+### Response Example
+
+```json
+{
+  "status": "success",
+  "data": {
+    "chapter": 2,
+    "verse": 47,
+    "translation": "You have the right to perform your prescribed duties, but you are not entitled to the fruits of your actions. Never consider yourself to be the cause of the results of your activities, nor be attached to inaction.",
+    "summarized_commentary": "This verse teaches the principle of performing duty without attachment to results."
+  }
+}
+```
+
+### Error Responses
+
+| Status Code | Description |
+|-------------|-------------|
+| 400 | Invalid request - missing chapter/verse or values out of range |
+| 404 | Verse not found |
+| 429 | Rate limit exceeded |
+| 500 | Internal server error |
+| 504 | Request timeout (>15 seconds) |
+
+### Rate Limiting
+
+- **Frontend**: 60 requests per minute per client
+- **Backend**: 30 requests per minute per IP address
+
+### Code Examples
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST https://gitachat.org/api/verse \
+  -H "Content-Type: application/json" \
+  -d '{
+    "chapter": 2,
+    "verse": 47
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('https://gitachat.org/api/verse', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    chapter: 2,
+    verse: 47
+  })
+});
+
+const data = await response.json();
+console.log(data.data);
+```
+
+```python Python
+import requests
+
+response = requests.post(
+    'https://gitachat.org/api/verse',
+    json={'chapter': 2, 'verse': 47}
+)
+
+data = response.json()
+print(data['data'])
+```
+
+```typescript TypeScript
+interface VerseData {
+  chapter: number;
+  verse: number;
+  translation: string;
+  summarized_commentary: string;
+}
+
+interface VerseResponse {
+  status: string;
+  data: VerseData;
+}
+
+const response = await fetch('https://gitachat.org/api/verse', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    chapter: 2,
+    verse: 47
+  })
+});
+
+const result: VerseResponse = await response.json();
+```
+
+</CodeGroup>
+
+### Verse Ranges by Chapter
+
+The Bhagavad Gita contains 18 chapters with varying numbers of verses:
+
+- Each chapter has a different number of verses
+- The maximum verse number varies by chapter
+- Chapter 18 has the most verses (78 verses)
+- Valid chapter range: 1-18
+- Valid verse range: 1-78 (depending on chapter)

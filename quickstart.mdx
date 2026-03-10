@@ -1,80 +1,187 @@
 ---
 title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+description: "Get started with GitaChat in minutes - from your first question to exploring spiritual wisdom"
 ---
 
-## Get started in three steps
+## Your First Question
 
-Get your documentation site running locally and make your first customization.
+GitaChat makes it simple to find relevant wisdom from the Bhagavad Gita. Let's walk through asking your first question.
 
-### Step 1: Set up your local environment
-
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
+<Steps>
+  <Step title="Visit GitaChat">
+    Go to [gitachat.org](https://gitachat.org) and you'll see the search interface.
+  </Step>
+  
+  <Step title="Ask a Question">
+    Enter any question or situation you're facing. For example:
+    - "How do I deal with anxiety?"
+    - "What is my purpose in life?"
+    - "How can I overcome fear?"
     
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+    GitaChat uses semantic search to understand the meaning behind your question, not just keywords.
+  </Step>
+  
+  <Step title="View Results">
+    Within seconds, you'll receive:
+    - The most relevant verse from the Bhagavad Gita
+    - **Contextual commentary** - AI-generated explanation tailored to your question
+    - **Traditional commentary** - Scholarly interpretation of the verse
+    - **Related verses** - Additional teachings on similar topics
+  </Step>
+  
+  <Step title="Explore & Save (Optional)">
+    Sign up for a free account to:
+    - Bookmark verses for later reference
+    - Add personal notes and reflections
+    - Track your search history
+    - Receive daily verses via email
+  </Step>
+</Steps>
 
-### Step 2: Deploy your changes
+## Create Your Account
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
+While you can use GitaChat without an account, signing up unlocks powerful features for your spiritual journey.
 
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Bookmarks" icon="bookmark" href="/user-features/bookmarks">
+    Save verses to revisit them anytime
+  </Card>
+  <Card title="Notes" icon="pen-to-square" href="/user-features/notes">
+    Add personal reflections and insights
+  </Card>
+  <Card title="History" icon="clock-rotate-left" href="/user-features/history">
+    Track all your past searches
+  </Card>
+  <Card title="Daily Verse" icon="calendar-day" href="/user-features/daily-verse">
+    Get personalized daily wisdom via email
+  </Card>
 </CardGroup>
 
+### Sign Up Steps
+
+<Steps>
+  <Step title="Click Sign In">
+    Click the **Sign In** button in the top navigation bar.
+  </Step>
+  
+  <Step title="Choose Authentication Method">
+    Sign up using:
+    - Email and password
+    - Google account
+    - Other OAuth providers
+    
+    GitaChat uses [Clerk](https://clerk.com) for secure authentication.
+  </Step>
+  
+  <Step title="Complete Your Profile">
+    Add your name and preferences. You're ready to start your personalized journey!
+  </Step>
+</Steps>
+
+## Explore Key Features
+
+Now that you're set up, discover what makes GitaChat powerful.
+
+### Semantic Search
+
+Ask questions naturally - GitaChat understands context and meaning, not just keywords.
+
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+Try asking the same question in different ways to discover how semantic search finds the most relevant teachings regardless of exact wording.
 </Note>
+
+**Learn more**: [Semantic Search](/features/semantic-search)
+
+### Dual Commentary System
+
+Every verse includes two types of commentary:
+
+1. **Contextual Commentary** - AI-generated explanation that specifically addresses your question
+2. **Traditional Commentary** - Scholarly interpretation from classical sources
+
+This dual approach helps you understand both the universal teaching and its specific application to your situation.
+
+**Learn more**: [Contextual Commentary](/features/contextual-commentary)
+
+### Browse All Verses
+
+Explore all 18 chapters and 700+ verses of the Bhagavad Gita systematically.
+
+<CardGroup cols={2}>
+  <Card title="Read by Chapter" icon="book">
+    Navigate through all 18 chapters sequentially
+  </Card>
+  <Card title="Search Verses" icon="magnifying-glass">
+    Client-side search for instant filtering
+  </Card>
+</CardGroup>
+
+**Learn more**: [Verse Reading](/features/verse-reading)
+
+## Best Practices
+
+Get the most value from GitaChat by following these tips:
+
+<CardGroup cols={2}>
+  <Card title="Be Specific" icon="bullseye">
+    Describe your situation in detail for more relevant matches
+  </Card>
+  <Card title="Explore Related Verses" icon="link">
+    Check the related verses section for additional perspectives
+  </Card>
+  <Card title="Take Notes" icon="notebook">
+    Capture insights and reflections for future reference
+  </Card>
+  <Card title="Daily Practice" icon="calendar">
+    Subscribe to daily verses for consistent spiritual growth
+  </Card>
+</CardGroup>
+
+## Example Queries
+
+Here are some effective ways to ask questions:
+
+```
+"I'm struggling with procrastination and lack of motivation at work"
+```
+
+```
+"How can I stay calm when people criticize me unfairly?"
+```
+
+```
+"I feel lost and don't know what direction to take in life"
+```
+
+```
+"What does the Gita say about dealing with difficult family relationships?"
+```
+
+<Tip>
+The more context you provide, the better GitaChat can match you with relevant wisdom. Describe your situation, emotions, and what you're seeking guidance on.
+</Tip>
+
+## What's Next?
+
+<CardGroup cols={2}>
+  <Card title="Core Features" icon="star" href="/features/semantic-search">
+    Deep dive into semantic search, AI commentary, and verse reading
+  </Card>
+  <Card title="User Features" icon="user" href="/user-features/bookmarks">
+    Explore bookmarks, notes, history, and daily verses
+  </Card>
+  <Card title="API Reference" icon="code" href="/api/introduction">
+    Integrate GitaChat into your own applications
+  </Card>
+  <Card title="Development" icon="laptop-code" href="/development/local-setup">
+    Set up GitaChat locally or contribute to the project
+  </Card>
+</CardGroup>
+
+## Need Help?
+
+- **GitHub Issues**: Report bugs or request features on [GitHub](https://github.com/aadit2805/gitachat.org/issues)
+- **Documentation**: Explore comprehensive guides throughout this documentation
+- **Community**: Join discussions and share your experience
+
+Start your journey today at [gitachat.org](https://gitachat.org) and discover timeless wisdom for modern challenges.

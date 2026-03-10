@@ -1,0 +1,193 @@
+---
+title: 'Daily Verse API'
+description: 'Get a personalized daily verse recommendation'
+---
+
+## GET /api/daily
+
+Get a personalized daily verse for the authenticated user. The system intelligently selects verses based on what the user has already seen, preferring unseen verses.
+
+### Authentication
+
+Requires Clerk authentication. Include authentication headers with the request.
+
+### Query Parameters
+
+<ParamField query="tz" type="string">
+  User's timezone (e.g., "America/New_York", "Asia/Kolkata"). Defaults to "UTC" if not provided. Used to determine what "today" means for the user.
+</ParamField>
+
+### How It Works
+
+1. Checks if a daily verse has already been generated for the user today (based on their timezone)
+2. If cached, returns the cached verse
+3. If not cached:
+   - Analyzes the user's query history to find seen verses
+   - Selects a random unseen verse (or any random verse if all have been seen)
+   - Fetches the full verse details from the backend
+   - Caches the result for the rest of the day
+
+### Response
+
+<ResponseField name="chapter" type="integer">
+  Chapter number (1-18)
+</ResponseField>
+
+<ResponseField name="verse" type="integer">
+  Verse number
+</ResponseField>
+
+<ResponseField name="translation" type="string">
+  English translation of the verse
+</ResponseField>
+
+<ResponseField name="summarized_commentary" type="string">
+  Commentary or summary for the verse
+</ResponseField>
+
+<ResponseField name="cached" type="boolean">
+  Whether this verse was retrieved from cache (true) or newly generated (false)
+</ResponseField>
+
+### Response Example
+
+```json
+{
+  "chapter": 6,
+  "verse": 5,
+  "translation": "One must deliver oneself through one's own efforts, not degrade oneself. The mind is both friend and enemy of the self.",
+  "summarized_commentary": "This verse emphasizes self-reliance and the dual nature of the mind in spiritual practice.",
+  "cached": false
+}
+```
+
+### Cached Response Example
+
+```json
+{
+  "chapter": 6,
+  "verse": 5,
+  "translation": "One must deliver oneself through one's own efforts, not degrade oneself. The mind is both friend and enemy of the self.",
+  "summarized_commentary": "This verse emphasizes self-reliance and the dual nature of the mind in spiritual practice.",
+  "cached": true
+}
+```
+
+### Error Responses
+
+| Status Code | Description |
+|-------------|-------------|
+| 401 | Unauthorized - authentication required |
+| 429 | Rate limit exceeded (10 requests per minute) |
+| 500 | Failed to get daily verse |
+| 503 | Database not configured |
+
+### Rate Limiting
+
+**10 requests per minute** per client
+
+### Code Examples
+
+<CodeGroup>
+
+```bash cURL
+curl -X GET "https://gitachat.org/api/daily?tz=America/New_York" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+```bash cURL - UTC Timezone
+curl -X GET https://gitachat.org/api/daily \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+```javascript JavaScript
+// Get daily verse with user's timezone
+const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+const response = await fetch(
+  `https://gitachat.org/api/daily?tz=${encodeURIComponent(timezone)}`,
+  {
+    headers: { 'Authorization': `Bearer ${token}` }
+  }
+);
+
+const dailyVerse = await response.json();
+console.log(`Today's verse: Chapter ${dailyVerse.chapter}, Verse ${dailyVerse.verse}`);
+console.log(`Cached: ${dailyVerse.cached}`);
+```
+
+```python Python
+import requests
+from datetime import datetime
+import pytz
+
+# Get user's timezone
+timezone = datetime.now(pytz.timezone('America/New_York')).tzname()
+
+response = requests.get(
+    f'https://gitachat.org/api/daily?tz={timezone}',
+    headers={'Authorization': f'Bearer {token}'}
+)
+
+daily_verse = response.json()
+print(f"Chapter {daily_verse['chapter']}, Verse {daily_verse['verse']}")
+```
+
+```typescript TypeScript
+interface DailyVerse {
+  chapter: number;
+  verse: number;
+  translation: string;
+  summarized_commentary: string;
+  cached: boolean;
+}
+
+// Automatically detect user's timezone
+const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+const response = await fetch(
+  `https://gitachat.org/api/daily?tz=${encodeURIComponent(timezone)}`,
+  {
+    headers: { 'Authorization': `Bearer ${token}` }
+  }
+);
+
+const dailyVerse: DailyVerse = await response.json();
+
+if (dailyVerse.cached) {
+  console.log('Returning your verse for today');
+} else {
+  console.log('Generated a new verse for you!');
+}
+```
+
+</CodeGroup>
+
+### Smart Verse Selection
+
+The daily verse feature uses intelligent selection:
+
+- **Prioritizes unseen verses**: Checks user's query history to avoid repetition
+- **Falls back gracefully**: If all 703 verses have been seen, randomly selects any verse
+- **Timezone-aware**: Same "today" across all requests from the same timezone
+- **Cached per day**: Once generated, the same verse is returned for the entire day (in user's timezone)
+
+### Caching Behavior
+
+- Verses are cached in the `daily_verse` table
+- Cache key: `user_id` + `date` (formatted as YYYY-MM-DD in user's timezone)
+- Cache duration: Until midnight in the user's timezone
+- The `cached` field indicates if the verse was retrieved from cache
+
+### Use Cases
+
+- Daily meditation or reflection apps
+- Morning/evening verse notifications
+- Spiritual practice tracking
+- Progressive learning through the Gita (preferring unseen verses)
+
+### Performance Notes
+
+- First request of the day: ~15 seconds (fetches from backend)
+- Subsequent requests: less than 100ms (retrieved from cache)
+- Backend timeout: 15 seconds
+- Uses abort controller to prevent hanging requests

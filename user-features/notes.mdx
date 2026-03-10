@@ -1,0 +1,281 @@
+---
+title: "Verse Notes"
+description: "Add personal annotations and reflections to Bhagavad Gita verses"
+---
+
+## Overview
+
+The notes feature allows you to add personal annotations, reflections, and insights to any verse in the Bhagavad Gita. Notes help you remember your thoughts and deepen your understanding of the teachings.
+
+## How Notes Work
+
+<CardGroup cols={2}>
+  <Card title="Personal Annotations" icon="note-sticky">
+    Add your own thoughts and reflections to any verse
+  </Card>
+  <Card title="Easy Editing" icon="pen">
+    Update your notes anytime as your understanding grows
+  </Card>
+  <Card title="One Note Per Verse" icon="file">
+    Each verse can have one note that you can edit or replace
+  </Card>
+  <Card title="Retrieve Anytime" icon="magnifying-glass">
+    Fetch specific notes or browse all your notes at once
+  </Card>
+</CardGroup>
+
+## API Endpoint
+
+The notes API is available at `/api/notes` and supports three HTTP methods:
+
+### Get Notes
+
+Retrieve a specific note or all notes for the authenticated user.
+
+**Endpoint:** `GET /api/notes`
+
+**Authentication:** Required (Clerk)
+
+**Query Parameters (Optional):**
+- `chapter`: Chapter number to get a specific note
+- `verse`: Verse number to get a specific note
+
+**Example 1: Get Specific Note**
+```
+GET /api/notes?chapter=2&verse=47
+```
+
+**Response:**
+```json
+{
+  "id": "uuid",
+  "user_id": "user_123",
+  "chapter": 2,
+  "verse": 47,
+  "note_text": "This verse reminds me to focus on the process, not the outcome. Applied this at work today.",
+  "created_at": "2024-03-10T12:00:00Z",
+  "updated_at": "2024-03-10T14:30:00Z"
+}
+```
+
+Returns `null` if no note exists for that verse.
+
+**Example 2: Get All Notes**
+```
+GET /api/notes
+```
+
+**Response:**
+```json
+[
+  {
+    "id": "uuid",
+    "user_id": "user_123",
+    "chapter": 2,
+    "verse": 47,
+    "note_text": "Focus on duty without attachment to results",
+    "created_at": "2024-03-10T12:00:00Z",
+    "updated_at": "2024-03-10T12:00:00Z"
+  },
+  {
+    "id": "uuid",
+    "user_id": "user_123",
+    "chapter": 18,
+    "verse": 66,
+    "note_text": "Complete surrender - let go of all anxieties",
+    "created_at": "2024-03-09T10:00:00Z",
+    "updated_at": "2024-03-09T10:00:00Z"
+  }
+]
+```
+
+Notes are sorted by most recently updated first.
+
+### Create or Update Note
+
+Add a new note or update an existing one for a verse.
+
+**Endpoint:** `POST /api/notes`
+
+**Authentication:** Required (Clerk)
+
+**Request Body:**
+```json
+{
+  "chapter": 2,
+  "verse": 47,
+  "note_text": "This verse teaches detachment from results. I'm practicing this in my daily work."
+}
+```
+
+**Validation:**
+- `chapter`: Integer between 1-18 (required)
+- `verse`: Integer, valid for the specified chapter (required)
+- `note_text`: String, max 10,000 characters (required)
+- Whitespace is trimmed automatically
+
+**Success Response (200):**
+```json
+{
+  "id": "uuid",
+  "user_id": "user_123",
+  "chapter": 2,
+  "verse": 47,
+  "note_text": "This verse teaches detachment from results. I'm practicing this in my daily work.",
+  "created_at": "2024-03-10T12:00:00Z",
+  "updated_at": "2024-03-10T12:00:00Z"
+}
+```
+
+**Upsert Behavior:**
+- If no note exists for this verse, a new one is created
+- If a note already exists, it's updated with the new text
+- The `updated_at` timestamp is automatically refreshed
+
+### Delete Note
+
+Remove a note from a specific verse.
+
+**Endpoint:** `DELETE /api/notes?chapter=2&verse=47`
+
+**Authentication:** Required (Clerk)
+
+**Query Parameters:**
+- `chapter`: Chapter number (required)
+- `verse`: Verse number (required)
+
+**Success Response (200):**
+```json
+{
+  "success": true
+}
+```
+
+## Data Storage
+
+Notes are stored in the `verse_notes` table in Supabase:
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | UUID | Primary key |
+| `user_id` | String | Clerk user identifier |
+| `chapter` | Integer | Chapter number (1-18) |
+| `verse` | Integer | Verse number |
+| `note_text` | Text | User's note content (max 10,000 chars) |
+| `created_at` | Timestamp | When note was first created |
+| `updated_at` | Timestamp | When note was last modified |
+
+**Unique Constraint:** The combination of `user_id`, `chapter`, and `verse` is unique, ensuring one note per verse per user.
+
+## Implementation Details
+
+The notes system is implemented in `/app/api/notes/route.ts`:
+
+<CardGroup cols={2}>
+  <Card title="Upsert Logic" icon="arrows-rotate">
+    POST endpoint uses upsert to create or update seamlessly
+  </Card>
+  <Card title="Flexible Retrieval" icon="sliders">
+    GET endpoint works for both single notes and all notes
+  </Card>
+  <Card title="Timestamp Tracking" icon="clock">
+    Separate created_at and updated_at for version history
+  </Card>
+  <Card title="Text Length" icon="ruler">
+    Generous 10,000 character limit for detailed reflections
+  </Card>
+</CardGroup>
+
+## User Interface
+
+The notes feature integrates throughout the GitaChat interface:
+
+1. **Add Note**: Click the notes icon next to any verse
+2. **Edit Note**: Existing notes can be modified anytime
+3. **View All Notes**: Browse all your notes in one place
+4. **Delete Note**: Remove notes you no longer need
+5. **Rich Text**: Notes display with proper formatting
+
+## Use Cases
+
+<CardGroup cols={3}>
+  <Card title="Personal Reflections" icon="thought-bubble">
+    Record how a verse applies to your life
+  </Card>
+  <Card title="Study Journal" icon="graduation-cap">
+    Document insights from your study sessions
+  </Card>
+  <Card title="Action Items" icon="list-check">
+    Note specific practices to implement
+  </Card>
+  <Card title="Questions" icon="circle-question">
+    Write down questions for further exploration
+  </Card>
+  <Card title="Cross-References" icon="link">
+    Link verses to related teachings or scriptures
+  </Card>
+  <Card title="Progress Tracking" icon="chart-line">
+    Document your spiritual growth over time
+  </Card>
+</CardGroup>
+
+## Best Practices
+
+<Card title="Note-Taking Tips" icon="lightbulb">
+  - **Be Specific**: Reference specific life situations
+  - **Update Regularly**: Revise notes as understanding deepens
+  - **Keep It Personal**: Focus on what resonates with you
+  - **Use Clear Language**: Write for your future self
+  - **Combine with Bookmarks**: Bookmark verses with important notes
+</Card>
+
+## Character Limits
+
+| Field | Maximum Length | Purpose |
+|-------|---------------|---------|
+| `note_text` | 10,000 characters | Allow detailed reflections |
+| Other text fields | 5,000 characters | Bookmarks and commentary |
+
+The generous 10,000 character limit allows for comprehensive notes while preventing database abuse.
+
+## Error Handling
+
+Common error scenarios:
+
+| Error | Status | Description |
+|-------|--------|-------------|
+| Unauthorized | 401 | User not logged in |
+| Missing required fields | 400 | chapter, verse, or note_text missing |
+| Invalid chapter/verse | 400 | Chapter or verse out of valid range |
+| Note text too long | 400 | Exceeds 10,000 character limit |
+| Database not configured | 503 | Supabase connection unavailable |
+| Failed to save/delete | 500 | Server error occurred |
+
+## Validation Rules
+
+The API validates all input before processing:
+
+1. **Authentication**: User must be logged in via Clerk
+2. **Required Fields**: chapter, verse, and note_text are mandatory for POST
+3. **Chapter Range**: Must be between 1 and 18
+4. **Verse Range**: Must be valid for the specified chapter (varies by chapter)
+5. **Text Length**: note_text trimmed and must not exceed 10,000 characters
+6. **Data Types**: chapter and verse must be integers
+
+## Privacy
+
+<Card title="Your Notes are Private" icon="lock">
+  - Only you can see your notes
+  - Notes are tied to your Clerk user ID
+  - No other users can access your personal reflections
+  - Data is stored securely in Supabase with proper authentication
+</Card>
+
+## Integration with Other Features
+
+Notes work seamlessly with other GitaChat features:
+
+- **Bookmarks**: Add notes to bookmarked verses for enhanced reference
+- **History**: Review notes on verses you've searched before
+- **Daily Verse**: Add notes to your daily verse for ongoing reflection
+- **Search**: Find verses, then add notes with your insights

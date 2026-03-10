@@ -1,0 +1,146 @@
+---
+title: 'All Verses Endpoint'
+description: 'Get all verses from the Bhagavad Gita for client-side search'
+---
+
+## GET /api/all-verses
+
+Retrieve all 703 verses from the Bhagavad Gita in a single request. This endpoint is designed for client-side search functionality and caching.
+
+### Request
+
+No parameters required. This is a simple GET request.
+
+### Response
+
+<ResponseField name="status" type="string">
+  Response status - always "success" for successful requests
+</ResponseField>
+
+<ResponseField name="data" type="array">
+  Array of all verses, sorted by chapter and verse number
+</ResponseField>
+
+<ResponseField name="data[].chapter" type="integer">
+  Chapter number (1-18)
+</ResponseField>
+
+<ResponseField name="data[].verse" type="integer">
+  Verse number within the chapter
+</ResponseField>
+
+<ResponseField name="data[].translation" type="string">
+  English translation of the verse
+</ResponseField>
+
+<ResponseField name="data[].summary" type="string">
+  Brief summary of the verse (max 500 characters)
+</ResponseField>
+
+### Response Example
+
+```json
+{
+  "status": "success",
+  "data": [
+    {
+      "chapter": 1,
+      "verse": 1,
+      "translation": "Dhritarashtra said: O Sanjaya, assembled in the place of pilgrimage at Kurukshetra, desiring to fight, what did my sons and the sons of Pandu do?",
+      "summary": "King Dhritarashtra inquires about the events at Kurukshetra."
+    },
+    {
+      "chapter": 1,
+      "verse": 2,
+      "translation": "Sanjaya said: King Duryodhana, observing the army arrayed by the Pandavas, approached his teacher Drona and spoke the following words.",
+      "summary": "Duryodhana approaches his teacher as battle preparations begin."
+    },
+    ...
+  ]
+}
+```
+
+### Error Responses
+
+| Status Code | Description |
+|-------------|-------------|
+| 429 | Rate limit exceeded (10 requests per minute) |
+| 500 | Internal server error or failed to fetch from backend |
+
+### Rate Limiting
+
+- **Backend**: 10 requests per minute per IP address
+- Lower rate limit due to large response size
+
+### Caching
+
+- **Frontend**: Cached for 1 hour (3600 seconds)
+- **CDN**: Public cache with s-maxage of 3600 seconds
+- **Backend**: Data loaded once on server startup from Pinecone vector database
+- Responses include Cache-Control headers for optimal performance
+
+### Code Examples
+
+<CodeGroup>
+
+```bash cURL
+curl -X GET https://gitachat.org/api/all-verses
+```
+
+```javascript JavaScript
+const response = await fetch('https://gitachat.org/api/all-verses');
+const data = await response.json();
+
+// Use for client-side search
+const searchVerses = (query) => {
+  return data.data.filter(verse => 
+    verse.translation.toLowerCase().includes(query.toLowerCase()) ||
+    verse.summary.toLowerCase().includes(query.toLowerCase())
+  );
+};
+```
+
+```python Python
+import requests
+
+response = requests.get('https://gitachat.org/api/all-verses')
+data = response.json()
+
+print(f"Total verses: {len(data['data'])}")
+```
+
+```typescript TypeScript
+interface Verse {
+  chapter: number;
+  verse: number;
+  translation: string;
+  summary: string;
+}
+
+interface AllVersesResponse {
+  status: string;
+  data: Verse[];
+}
+
+const response = await fetch('https://gitachat.org/api/all-verses');
+const result: AllVersesResponse = await response.json();
+
+console.log(`Loaded ${result.data.length} verses`);
+```
+
+</CodeGroup>
+
+### Use Cases
+
+- **Client-side search**: Load all verses once and implement fast filtering
+- **Offline functionality**: Cache verses for offline access
+- **Browse mode**: Display complete chapter/verse listings
+- **Analytics**: Count verses per chapter or analyze content
+
+### Performance Notes
+
+- Response contains all 703 verses (~200-300KB payload)
+- Use caching to avoid repeated requests
+- Data is sorted by chapter and verse for easy navigation
+- Backend loads verses from Pinecone once at startup
+- Summaries are truncated to 500 characters maximum

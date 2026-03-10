@@ -1,0 +1,332 @@
+---
+title: "Daily Verse"
+description: "Receive personalized Bhagavad Gita verses daily via email or web interface"
+---
+
+## Overview
+
+GitaChat's daily verse feature delivers a personalized verse from the Bhagavad Gita every day. The intelligent selection algorithm ensures you receive verses you haven't seen before, providing a structured way to gradually explore all 700 verses.
+
+## How Daily Verse Works
+
+<CardGroup cols={2}>
+  <Card title="Smart Selection" icon="brain">
+    Algorithm prioritizes verses you haven't seen yet
+  </Card>
+  <Card title="Web Access" icon="globe">
+    Fetch your daily verse through the API anytime
+  </Card>
+  <Card title="Email Delivery" icon="envelope">
+    Subscribe to receive verses via email at 8 AM in your timezone
+  </Card>
+  <Card title="Daily Caching" icon="database">
+    Same verse throughout the day for consistent reflection
+  </Card>
+</CardGroup>
+
+## Daily Verse API
+
+### Get Daily Verse
+
+Fetch the verse of the day for the authenticated user.
+
+**Endpoint:** `GET /api/daily`
+
+**Authentication:** Required (Clerk)
+
+**Rate Limit:** 10 requests per minute per client
+
+**Query Parameters (Optional):**
+- `tz`: Timezone (e.g., "America/New_York", "Asia/Kolkata"). Defaults to "UTC"
+
+**Request Example:**
+```
+GET /api/daily?tz=America/New_York
+```
+
+**Response:**
+```json
+{
+  "chapter": 2,
+  "verse": 47,
+  "translation": "You have the right to perform your prescribed duties, but you are not entitled to the fruits of your actions.",
+  "summarized_commentary": "This verse emphasizes the importance of performing one's duty without attachment to the results. Krishna teaches that we should focus on our responsibilities and actions, leaving the outcomes to divine will.",
+  "cached": false
+}
+```
+
+**Response Fields:**
+- `chapter`: Chapter number (1-18)
+- `verse`: Verse number
+- `translation`: English translation of the verse
+- `summarized_commentary`: AI-generated explanation
+- `cached`: Boolean indicating if this was retrieved from cache (true) or newly generated (false)
+
+## Email Subscription API
+
+### Check Subscription Status
+
+Check if the user is subscribed to daily verse emails.
+
+**Endpoint:** `GET /api/email-subscription`
+
+**Authentication:** Required (Clerk)
+
+**Rate Limit:** 10 requests per minute per client
+
+**Response:**
+```json
+{
+  "subscribed": true,
+  "timezone": "America/New_York"
+}
+```
+
+### Subscribe to Daily Emails
+
+Sign up to receive daily verse emails at 8 AM in your timezone.
+
+**Endpoint:** `POST /api/email-subscription`
+
+**Authentication:** Required (Clerk)
+
+**Rate Limit:** 10 requests per minute per client
+
+**Request Body:**
+```json
+{
+  "timezone": "America/New_York"
+}
+```
+
+**Timezone Validation:**
+- Must be a valid IANA timezone identifier
+- Examples: "America/Los_Angeles", "Europe/London", "Asia/Tokyo"
+- Defaults to "UTC" if not provided
+
+**Success Response (200):**
+```json
+{
+  "success": true
+}
+```
+
+**Implementation Notes:**
+- Uses Clerk to retrieve user's primary email address
+- Generates unique unsubscribe token for each user
+- Upserts subscription (creates new or reactivates existing)
+- Sets `is_active` to true and records `subscribed_at` timestamp
+
+### Unsubscribe from Daily Emails
+
+Stop receiving daily verse emails.
+
+**Endpoint:** `DELETE /api/email-subscription`
+
+**Authentication:** Required (Clerk)
+
+**Rate Limit:** 10 requests per minute per client
+
+**Success Response (200):**
+```json
+{
+  "success": true
+}
+```
+
+This sets `is_active` to false without deleting the subscription record.
+
+## Daily Verse Selection Algorithm
+
+The intelligent verse selection algorithm ensures a varied and complete exploration of the Bhagavad Gita:
+
+<CardGroup cols={1}>
+  <Card title="Selection Process" icon="diagram-project">
+    1. **Check Cache**: Look for today's cached verse (based on timezone)
+    2. **Return Cache**: If found, return immediately (ensures consistency)
+    3. **Fetch History**: Retrieve all verses you've previously seen
+    4. **Filter Unseen**: Identify verses you haven't encountered yet
+    5. **Random Selection**: Pick randomly from unseen verses
+    6. **Fallback**: If all verses seen, pick randomly from all verses
+    7. **Fetch Details**: Get translation and commentary from backend
+    8. **Cache Result**: Store in database for the rest of the day
+  </Card>
+</CardGroup>
+
+**Why This Approach:**
+- **Gradual Coverage**: You'll eventually see all 700 verses
+- **No Repetition**: Prioritizes new verses until you've seen them all
+- **Fair Distribution**: Random selection ensures variety
+- **Consistent Experience**: Same verse all day for focused reflection
+
+## Email Delivery System
+
+The email delivery is handled by a cron job that runs hourly.
+
+**Endpoint:** `POST /api/daily-email`
+
+**Authentication:** CRON_SECRET bearer token (not for public use)
+
+### Delivery Process
+
+<CardGroup cols={2}>
+  <Card title="Timezone Detection" icon="earth-americas">
+    Identifies timezones where it's currently 8 AM
+  </Card>
+  <Card title="Subscriber Query" icon="users">
+    Fetches active subscribers in those timezones
+  </Card>
+  <Card title="Verse Generation" icon="wand-magic-sparkles">
+    Generates personalized daily verse for each user
+  </Card>
+  <Card title="Email Sending" icon="paper-plane">
+    Sends formatted emails via Resend service
+  </Card>
+</CardGroup>
+
+### Email Content
+
+Each daily verse email includes:
+- **Subject Line**: Customized for the verse
+- **Verse Text**: Full Sanskrit verse and translation
+- **Commentary**: Summarized explanation of the teaching
+- **Chapter Reference**: Chapter and verse number
+- **Unsubscribe Link**: Easy one-click unsubscribe
+
+### Supported Timezones
+
+The system supports 30+ major timezones worldwide:
+
+**Americas**: Honolulu, Anchorage, Los Angeles, Denver, Chicago, New York, Toronto, Vancouver, Phoenix, Sao Paulo
+
+**Europe**: London, Paris, Berlin, Moscow, Amsterdam, Rome, Madrid, Stockholm, Reykjavik
+
+**Asia**: Dubai, Kolkata, Bangkok, Singapore, Tokyo, Shanghai, Hong Kong, Seoul
+
+**Oceania**: Sydney, Melbourne, Auckland
+
+## Data Storage
+
+### Daily Verse Cache Table
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `user_id` | String | Clerk user identifier |
+| `date` | Date | Date string (YYYY-MM-DD) in user's timezone |
+| `chapter` | Integer | Chapter number |
+| `verse` | Integer | Verse number |
+| `translation` | Text | Verse translation |
+| `summarized_commentary` | Text | Commentary |
+| `matched_theme` | Text | Theme that matched (nullable) |
+
+**Unique Constraint:** `user_id` + `date` ensures one verse per day per user.
+
+### Email Subscribers Table
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `user_id` | String | Clerk user identifier (unique) |
+| `email` | String | User's email address |
+| `timezone` | String | IANA timezone identifier |
+| `unsubscribe_token` | UUID | Unique token for unsubscribe link |
+| `is_active` | Boolean | Whether subscription is active |
+| `subscribed_at` | Timestamp | When user subscribed |
+| `last_email_sent_at` | Timestamp | Last email delivery time |
+
+## Implementation Files
+
+<CardGroup cols={2}>
+  <Card title="/api/daily/route.ts" icon="code">
+    Web API for fetching daily verse on demand
+  </Card>
+  <Card title="/api/email-subscription/route.ts" icon="code">
+    Subscription management (GET, POST, DELETE)
+  </Card>
+  <Card title="/api/daily-email/route.ts" icon="code">
+    Cron job handler for automated email delivery
+  </Card>
+  <Card title="Backend /api/verse" icon="server">
+    Fetches verse translation and commentary
+  </Card>
+</CardGroup>
+
+## Rate Limiting
+
+Different rate limits for different operations:
+
+| Endpoint | Rate Limit | Purpose |
+|----------|------------|---------|
+| GET /api/daily | 10 req/min | Normal daily verse fetching |
+| GET /api/email-subscription | 10 req/min | Check subscription status |
+| POST /api/email-subscription | 10 req/min | Subscribe to emails |
+| DELETE /api/email-subscription | 10 req/min | Unsubscribe from emails |
+
+## Error Handling
+
+Common error scenarios:
+
+| Error | Status | Description |
+|-------|--------|-------------|
+| Unauthorized | 401 | User not logged in |
+| No email found | 400 | User has no email address (subscription only) |
+| Invalid timezone | 400 | Timezone not recognized |
+| Too many requests | 429 | Rate limit exceeded |
+| Database not configured | 503 | Supabase connection unavailable |
+| Failed to fetch verse | 500 | Backend verse API error |
+
+## Best Practices
+
+<Card title="Daily Verse Tips" icon="star">
+  - **Set Your Timezone**: Ensure accurate delivery time for emails
+  - **Consistent Reflection**: Access your daily verse at the same time each day
+  - **Add Notes**: Write reflections on your daily verse
+  - **Bookmark Favorites**: Save daily verses that resonate deeply
+  - **Check Once**: The verse is cached, so it's the same all day—take time to reflect
+</Card>
+
+## Privacy & Unsubscribe
+
+<CardGroup cols={2}>
+  <Card title="Easy Unsubscribe" icon="door-open">
+    Every email includes a one-click unsubscribe link
+  </Card>
+  <Card title="Data Control" icon="shield">
+    Unsubscribing sets is_active to false, preserving preferences
+  </Card>
+  <Card title="Email Privacy" icon="envelope-circle-check">
+    Your email is only used for daily verse delivery
+  </Card>
+  <Card title="Token Security" icon="key">
+    Unsubscribe tokens are unique UUIDs per user
+  </Card>
+</CardGroup>
+
+## Integration with History
+
+The daily verse selection algorithm uses your search history to ensure variety:
+
+1. Queries `query_history` table for all verses you've searched
+2. Creates a "seen verses" set from your history
+3. Filters these out when selecting today's verse
+4. Ensures you see fresh content you haven't explored before
+
+This creates a personalized, progressive journey through the Bhagavad Gita.
+
+## Cron Job Monitoring
+
+The daily email cron job returns detailed metrics:
+
+```json
+{
+  "sent": 145,
+  "total": 150,
+  "timezones": ["America/New_York", "Europe/London", "Asia/Tokyo"],
+  "errors": ["Failed to send email to a subscriber"]
+}
+```
+
+**Metrics Tracked:**
+- `sent`: Number of emails successfully delivered
+- `total`: Total number of subscribers in target timezones
+- `timezones`: List of timezones where it's currently 8 AM
+- `errors`: Array of error messages (only present if errors occurred)

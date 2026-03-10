@@ -1,0 +1,334 @@
+---
+title: 'Semantic Search'
+description: 'Advanced AI-powered search using vector embeddings to find the most relevant Bhagavad Gita verses'
+icon: 'magnifying-glass'
+---
+
+## Overview
+
+GitaChat uses state-of-the-art semantic search to understand the **meaning** behind your questions, not just keyword matches. When you ask "How do I handle anxiety?", the system finds verses about inner peace and equanimity—even if those exact words aren't used.
+
+<CardGroup cols={2}>
+  <Card title="Vector Embeddings" icon="brain">
+    Converts text into 768-dimensional mathematical representations that capture semantic meaning
+  </Card>
+  <Card title="Hybrid Search" icon="shuffle">
+    Combines semantic similarity with keyword matching for optimal accuracy
+  </Card>
+  <Card title="BGE Model" icon="microchip">
+    Uses BAAI/bge-base-en-v1.5, a top-performing embedding model on MTEB benchmarks
+  </Card>
+  <Card title="Intelligent Ranking" icon="ranking-star">
+    Advanced scoring algorithm that balances semantic relevance with keyword presence
+  </Card>
+</CardGroup>
+
+---
+
+## How It Works
+
+### 1. Query Processing
+
+When you submit a question, GitaChat enhances it with an instruction prefix optimized for the BGE model:
+
+```python
+# From model.py:38-42
+def match(query):
+    """Find the best matching verse for a query using semantic search."""
+    # BGE models work best with instruction prefix for queries
+    query_with_instruction = (
+        f"Represent this sentence for searching relevant passages: {query}"
+    )
+    query_embedding = embedding_model.encode(query_with_instruction).tolist()
+```
+
+<Note>
+The instruction prefix `"Represent this sentence for searching relevant passages:"` is specifically designed for BGE models to improve retrieval accuracy. This is a best practice recommended by the model creators.
+</Note>
+
+### 2. Vector Embedding Generation
+
+Your enhanced query is converted into a 768-dimensional vector using the **BGE-base-en-v1.5** model:
+
+```python
+# From config.py:32-33
+EMBEDDING_MODEL_NAME = "BAAI/bge-base-en-v1.5"
+EMBEDDING_DIMENSION = 768
+```
+
+```python
+# From clients.py:23-24
+# Embedding model - BGE base (768-dim, top MTEB performance)
+embedding_model = SentenceTransformer(EMBEDDING_MODEL_NAME)
+```
+
+#### Why BGE-base-en-v1.5?
+
+- **Top MTEB Performance**: Ranks among the best open-source embedding models
+- **Semantic Understanding**: Captures nuanced meaning and context
+- **Optimized Dimensions**: 768 dimensions balance performance and accuracy
+- **Proven Reliability**: Used in production by thousands of applications
+
+### 3. Semantic Matching
+
+The query embedding is compared against all 700+ verse embeddings stored in Pinecone vector database:
+
+```python
+# From model.py:44-47
+# Fetch top 8 matches from Pinecone for hybrid search
+results = index.query(
+    vector=query_embedding, top_k=8, include_metadata=True
+)
+```
+
+The system retrieves the **top 8 candidates** to allow for re-ranking in the next phase.
+
+### 4. Hybrid Search Algorithm
+
+GitaChat implements a sophisticated hybrid approach that combines semantic similarity with keyword matching:
+
+```python
+# From model.py:52-67
+# Build a list of semantic matches with scores
+semantic_matches = []
+for i, match in enumerate(results["matches"]):
+    meta = match["metadata"]
+    semantic_matches.append(
+        {
+            "chapter": meta["chapter"],
+            "verse": meta["verse"],
+            "translation": meta["translation"],
+            "summary": meta.get("summary", ""),
+            "commentary": meta.get("commentary", ""),
+            "semantic_rank": i,
+            "semantic_score": match["score"],
+            "keyword_boost": 0,
+        }
+    )
+```
+
+#### Keyword Boosting
+
+For each semantic match, the algorithm analyzes keyword overlap:
+
+```python
+# From model.py:69-79
+# Keyword matching: boost results that contain query terms
+query_lower = query.lower()
+query_terms = [term.strip() for term in query_lower.split() if len(term.strip()) > 2]
+
+for match in semantic_matches:
+    text = (match["translation"] + " " + match["summary"]).lower()
+    # Count how many query terms appear in the text
+    term_matches = sum(1 for term in query_terms if term in text)
+    if term_matches > 0:
+        # Boost based on term match ratio
+        match["keyword_boost"] = term_matches / len(query_terms) if query_terms else 0
+```
+
+<Note>
+Query terms shorter than 3 characters are filtered out to avoid matching common words like "is", "to", "at" that don't carry semantic weight.
+</Note>
+
+### 5. Combined Scoring and Re-ranking
+
+The final score combines semantic similarity (0-1) with a keyword boost (weighted at 15%):
+
+```python
+# From model.py:81-87
+# Re-rank: combine semantic score with keyword boost
+# semantic_score is typically 0-1, keyword_boost is 0-1
+for match in semantic_matches:
+    match["combined_score"] = match["semantic_score"] + (match["keyword_boost"] * 0.15)
+
+# Sort by combined score (descending)
+semantic_matches.sort(key=lambda x: x["combined_score"], reverse=True)
+```
+
+**Why 15% keyword weight?**
+- Semantic similarity is the primary signal (85%)
+- Keyword matching provides a secondary boost (15%)
+- This prevents false negatives when exact terms are present
+- Balances precision and recall effectively
+
+---
+
+## Related Verses Feature
+
+GitaChat doesn't just return one verse—it provides **related verses** from the remaining top matches:
+
+```python
+# From model.py:100-116
+# Related verses (next 3 unique verses)
+related = []
+seen = {(best["chapter"], best["verse"])}
+for match in semantic_matches[1:]:
+    key = (match["chapter"], match["verse"])
+    if key not in seen:
+        related.append(
+            {
+                "chapter": match["chapter"],
+                "verse": match["verse"],
+                "translation": match["translation"],
+                "summarized_commentary": match["summary"],
+            }
+        )
+        seen.add(key)
+        if len(related) >= 3:
+            break
+
+main_result["related"] = related
+```
+
+This gives you alternative perspectives and complementary teachings on your question.
+
+---
+
+## Technical Architecture
+
+<CardGroup cols={2}>
+  <Card title="Vector Database" icon="database">
+    **Pinecone** stores 700+ verse embeddings with metadata for fast similarity search
+  </Card>
+  <Card title="Embedding Model" icon="code">
+    **SentenceTransformers** library loads and runs BGE-base-en-v1.5 locally
+  </Card>
+  <Card title="API Layer" icon="server">
+    **FastAPI** endpoint `/api/query` handles search requests with rate limiting
+  </Card>
+  <Card title="Performance" icon="gauge-high">
+    Response time typically under 500ms including embedding generation and ranking
+  </Card>
+</CardGroup>
+
+### System Configuration
+
+```python
+# From config.py:11-17
+# Limit CPU threads to prevent contention on shared infrastructure
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+
+import torch
+torch.set_num_threads(1)
+```
+
+The system is optimized for shared infrastructure by limiting thread usage, preventing resource contention while maintaining fast response times.
+
+---
+
+## API Integration
+
+### Query Endpoint
+
+```python
+# From main.py:115-143
+@app.post("/api/query", response_model=dict)
+@limiter.limit("30/minute")
+async def query_gita(request: Request, query: Query) -> dict:
+    """
+    Query the Gita with the provided query string(s).
+    Returns verse with contextual commentary tailored to the user's question.
+    """
+    try:
+        from model import match
+        from utils import generate_contextual_commentary
+
+        result = match(query.query)
+        if not result:
+            raise HTTPException(status_code=404, detail="No matches found")
+
+        # Generate contextual commentary that addresses the user's specific question
+        try:
+            contextual = generate_contextual_commentary(query.query, result)
+            result["summarized_commentary"] = contextual
+        except Exception as e:
+            # Fall back to pre-computed summary if OpenAI fails
+            logging.warning(f"Contextual commentary failed, using fallback: {e}")
+
+        return {"status": "success", "data": result}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Query error: {type(e).__name__}: {e}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+```
+
+**Key Features:**
+- Rate limiting: 30 requests per minute per IP
+- Graceful fallback if contextual commentary generation fails
+- Comprehensive error logging
+- Returns both the matched verse and related verses
+
+---
+
+## Performance Optimizations
+
+<CardGroup cols={2}>
+  <Card title="Model Warmup" icon="fire">
+    Embedding model is loaded and warmed up on application startup to avoid cold start delays
+  </Card>
+  <Card title="Batch Processing" icon="layer-group">
+    Retrieves top 8 candidates in one query for efficient re-ranking
+  </Card>
+  <Card title="Metadata Filtering" icon="filter">
+    Pinecone metadata filters enable fast chapter/verse lookups without full scan
+  </Card>
+  <Card title="Caching" icon="memory">
+    All 700+ verses cached in memory on startup for instant browsing
+  </Card>
+</CardGroup>
+
+### Startup Initialization
+
+```python
+# From main.py:59-74
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global all_verses_cache
+    # Load all verses from Pinecone on startup
+    logging.info("Loading all verses from Pinecone...")
+    all_verses_cache = load_all_verses_from_pinecone()
+    logging.info(f"Loaded {len(all_verses_cache)} verses")
+
+    # Load model on startup (before any requests)
+    logging.info("Loading embedding model...")
+    from clients import embedding_model
+
+    # Warm up the model with a dummy query
+    embedding_model.encode("warmup")
+    logging.info("Model loaded and ready!")
+    yield
+```
+
+This ensures the first user request is just as fast as subsequent ones.
+
+---
+
+## Example Search Flow
+
+Let's trace a real query: **"How do I overcome fear?"**
+
+1. **Query Enhancement**: `"Represent this sentence for searching relevant passages: How do I overcome fear?"`
+2. **Embedding Generation**: Converted to 768-dimensional vector
+3. **Semantic Search**: Top 8 matches retrieved from Pinecone
+4. **Keyword Analysis**: Terms "overcome" and "fear" checked in each match
+5. **Combined Scoring**: Semantic scores adjusted with keyword boosts
+6. **Final Results**: 
+   - Best match (e.g., Chapter 2, Verse 56 on steadfastness)
+   - 3 related verses on conquering fear and maintaining equanimity
+   - AI-generated contextual commentary addressing fear specifically
+
+---
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Contextual Commentary" icon="comments" href="/features/contextual-commentary">
+    Learn how AI generates personalized wisdom for each search
+  </Card>
+  <Card title="Verse Reading" icon="book-open" href="/features/verse-reading">
+    Explore how to browse all 700+ verses by chapter
+  </Card>
+</CardGroup>

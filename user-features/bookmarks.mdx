@@ -1,0 +1,181 @@
+---
+title: "Bookmarks"
+description: "Save and manage your favorite Bhagavad Gita verses for quick access later"
+---
+
+## Overview
+
+GitaChat's bookmark feature allows users to save meaningful verses from the Bhagavad Gita for future reference. Bookmarks are stored in Supabase and tied to your user account, making them accessible across sessions.
+
+## How Bookmarks Work
+
+<CardGroup cols={2}>
+  <Card title="Save Verses" icon="bookmark">
+    Save any verse along with its translation and commentary for later
+  </Card>
+  <Card title="View Collection" icon="list">
+    Access all your bookmarked verses in chronological order
+  </Card>
+  <Card title="Remove Bookmarks" icon="trash">
+    Delete bookmarks you no longer need
+  </Card>
+  <Card title="Duplicate Prevention" icon="shield">
+    System prevents duplicate bookmarks automatically
+  </Card>
+</CardGroup>
+
+## API Endpoint
+
+The bookmarks API is available at `/api/bookmarks` and supports three HTTP methods:
+
+### Get All Bookmarks
+
+Retrieve all bookmarks for the authenticated user.
+
+**Endpoint:** `GET /api/bookmarks`
+
+**Authentication:** Required (Clerk)
+
+**Rate Limit:** 30 requests per minute per client
+
+**Response:**
+```json
+[
+  {
+    "id": "uuid",
+    "user_id": "user_123",
+    "chapter": 2,
+    "verse": 47,
+    "translation": "You have the right to perform your duties...",
+    "summarized_commentary": "This verse emphasizes performing one's duty...",
+    "created_at": "2024-03-10T12:00:00Z"
+  }
+]
+```
+
+### Save a Bookmark
+
+Add a new verse to your bookmarks collection.
+
+**Endpoint:** `POST /api/bookmarks`
+
+**Authentication:** Required (Clerk)
+
+**Rate Limit:** 30 requests per minute per client
+
+**Request Body:**
+```json
+{
+  "chapter": 2,
+  "verse": 47,
+  "translation": "You have the right to perform your duties, but never to the fruits of your actions.",
+  "summarized_commentary": "This verse emphasizes performing one's duty without attachment to results."
+}
+```
+
+**Validation:**
+- `chapter`: Integer between 1-18
+- `verse`: Integer, valid for the specified chapter
+- `translation`: String, max 5000 characters
+- `summarized_commentary`: String, max 5000 characters
+
+**Success Response (200):**
+```json
+{
+  "success": true
+}
+```
+
+**Error Response (409):**
+```json
+{
+  "error": "Already bookmarked"
+}
+```
+
+### Delete a Bookmark
+
+Remove a verse from your bookmarks.
+
+**Endpoint:** `DELETE /api/bookmarks?chapter=2&verse=47`
+
+**Authentication:** Required (Clerk)
+
+**Rate Limit:** 30 requests per minute per client
+
+**Query Parameters:**
+- `chapter`: Chapter number (1-18)
+- `verse`: Verse number (valid for chapter)
+
+**Success Response (200):**
+```json
+{
+  "success": true
+}
+```
+
+## Data Storage
+
+Bookmarks are stored in the `bookmarks` table in Supabase with the following schema:
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | UUID | Primary key |
+| `user_id` | String | Clerk user identifier |
+| `chapter` | Integer | Chapter number (1-18) |
+| `verse` | Integer | Verse number |
+| `translation` | Text | English translation of the verse |
+| `summarized_commentary` | Text | AI-generated commentary |
+| `created_at` | Timestamp | When bookmark was created |
+
+**Unique Constraint:** The combination of `user_id`, `chapter`, and `verse` is unique, preventing duplicate bookmarks.
+
+## Implementation Details
+
+The bookmark system is implemented in `/app/api/bookmarks/route.ts`:
+
+<CardGroup cols={2}>
+  <Card title="Rate Limiting" icon="gauge">
+    30 requests per minute per client using Redis-based rate limiting
+  </Card>
+  <Card title="Authentication" icon="lock">
+    Clerk authentication ensures only logged-in users can access bookmarks
+  </Card>
+  <Card title="Validation" icon="check">
+    Strict validation of chapter/verse numbers and text length
+  </Card>
+  <Card title="Error Handling" icon="triangle-exclamation">
+    Graceful error handling with appropriate HTTP status codes
+  </Card>
+</CardGroup>
+
+## User Interface
+
+Users can bookmark verses through the GitaChat interface:
+
+1. **Add Bookmark**: Click the bookmark icon next to any verse
+2. **View Bookmarks**: Navigate to the bookmarks section to see all saved verses
+3. **Remove Bookmark**: Click the remove icon to delete a bookmark
+4. **Ordered Display**: Bookmarks are displayed in reverse chronological order (newest first)
+
+## Best Practices
+
+<Card title="Usage Tips" icon="lightbulb">
+  - Save verses that resonate with you for quick reference
+  - Use bookmarks to build a personal collection of favorite teachings
+  - Review your bookmarks regularly for spiritual growth
+  - The system prevents duplicates, so you can bookmark freely
+</Card>
+
+## Error Handling
+
+Common error scenarios:
+
+| Error | Status | Description |
+|-------|--------|-------------|
+| Unauthorized | 401 | User not logged in |
+| Already bookmarked | 409 | Verse already in bookmarks |
+| Invalid chapter/verse | 400 | Chapter or verse out of valid range |
+| Text too long | 400 | Translation or commentary exceeds 5000 chars |
+| Too many requests | 429 | Rate limit exceeded |
+| Database not configured | 503 | Supabase connection unavailable |

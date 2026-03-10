@@ -1,0 +1,247 @@
+---
+title: "Local Development Setup"
+description: "Set up GitaChat for local development with complete frontend and backend configuration"
+---
+
+## Prerequisites
+
+Before you begin, ensure you have the following installed on your system:
+
+<CardGroup cols={3}>
+  <Card title="Node.js" icon="node-js">
+    Version 20 or higher
+  </Card>
+  <Card title="Bun" icon="package">
+    Latest version for package management
+  </Card>
+  <Card title="Python" icon="python">
+    Version 3.9 or higher
+  </Card>
+</CardGroup>
+
+## Quick Start
+
+GitaChat consists of two main components that run independently:
+- **Frontend**: Next.js application (port 3000)
+- **Backend**: FastAPI server (port 8000)
+
+## Frontend Setup
+
+The frontend is built with Next.js, TypeScript, and uses Clerk for authentication, Supabase for query history, and TanStack Query for data fetching.
+
+<Steps>
+  <Step title="Navigate to frontend directory">
+    ```bash
+    cd frontend
+    ```
+  </Step>
+
+  <Step title="Install dependencies">
+    <CodeGroup>
+      ```bash bun
+      bun install
+      ```
+
+      ```bash npm
+      npm install
+      ```
+
+      ```bash yarn
+      yarn install
+      ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Configure environment variables">
+    Create a `.env.local` file in the `frontend/` directory:
+    
+    ```bash
+    BACKEND_URL=http://localhost:8000
+    NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
+    CLERK_SECRET_KEY=your_clerk_secret_key
+    NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+    SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+    ```
+    
+    See [Environment Variables](/development/environment-variables) for detailed configuration.
+  </Step>
+
+  <Step title="Start the development server">
+    <CodeGroup>
+      ```bash bun
+      bun run dev
+      ```
+
+      ```bash npm
+      npm run dev
+      ```
+
+      ```bash yarn
+      yarn dev
+      ```
+    </CodeGroup>
+
+    The frontend will be available at [http://localhost:3000](http://localhost:3000)
+  </Step>
+</Steps>
+
+## Backend Setup
+
+The backend uses FastAPI with Python, Sentence Transformers for embeddings, and Pinecone as the vector database.
+
+<Steps>
+  <Step title="Navigate to backend directory">
+    ```bash
+    cd backend
+    ```
+  </Step>
+
+  <Step title="Create a virtual environment (recommended)">
+    ```bash
+    python -m venv venv
+    source venv/bin/activate  # On Windows: venv\Scripts\activate
+    ```
+  </Step>
+
+  <Step title="Install dependencies">
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+    This will install:
+    - **FastAPI & Uvicorn**: Web framework and ASGI server
+    - **Sentence Transformers**: BGE-base-en-v1.5 for embeddings (768-dim)
+    - **Pinecone**: Vector database client
+    - **OpenAI**: For generating contextual commentary
+    - **SlowAPI**: Rate limiting
+  </Step>
+
+  <Step title="Configure environment variables">
+    Create a `.env` file in the `backend/` directory:
+    
+    ```bash
+    PINECONE_API_KEY=your_pinecone_api_key
+    PINECONE_INDEX=your_pinecone_index_name
+    GPT_KEY=your_openai_api_key
+    ```
+    
+    See [Environment Variables](/development/environment-variables) for detailed configuration.
+  </Step>
+
+  <Step title="Start the development server">
+    ```bash
+    uvicorn main:app --reload
+    ```
+
+    The backend API will be available at [http://localhost:8000](http://localhost:8000)
+  </Step>
+</Steps>
+
+## Running Both Services Concurrently
+
+You can use the provided Makefile to run both frontend and backend simultaneously:
+
+```bash
+make dev
+```
+
+This command runs both services in parallel using the configuration from the Makefile.
+
+## Verify Your Setup
+
+<CardGroup cols={2}>
+  <Card title="Frontend Health Check" icon="browser">
+    Open [http://localhost:3000](http://localhost:3000) in your browser
+    
+    You should see the GitaChat homepage
+  </Card>
+  
+  <Card title="Backend Health Check" icon="server">
+    Visit [http://localhost:8000/health](http://localhost:8000/health)
+    
+    You should receive: `{"status": "ok"}`
+  </Card>
+</CardGroup>
+
+### Test the Query Endpoint
+
+Once both services are running, you can test the semantic search functionality:
+
+```bash
+curl -X POST http://localhost:8000/api/query \
+  -H "Content-Type: application/json" \
+  -d '{"query": "How do I find inner peace?"}'
+```
+
+You should receive a response with a relevant verse from the Bhagavad Gita.
+
+## Project Structure
+
+```
+gitachat/
+├── frontend/               # Next.js frontend application
+│   ├── app/               # Next.js App Router pages
+│   ├── components/        # React components
+│   ├── lib/              # Utility functions and API clients
+│   ├── package.json      # Frontend dependencies
+│   └── .env.local        # Frontend environment variables
+│
+├── backend/              # FastAPI backend application
+│   ├── main.py          # FastAPI application and endpoints
+│   ├── model.py         # Embedding and search logic
+│   ├── clients.py       # Pinecone and model clients
+│   ├── config.py        # Environment configuration
+│   ├── utils.py         # Helper functions
+│   ├── requirements.txt # Python dependencies
+│   └── .env            # Backend environment variables
+│
+└── Makefile            # Commands for running both services
+```
+
+## Troubleshooting
+
+<CardGroup cols={2}>
+  <Card title="Port Already in Use" icon="circle-exclamation">
+    If port 3000 or 8000 is already in use:
+    
+    ```bash
+    # Find process using port
+    lsof -i :3000  # or :8000
+    
+    # Kill the process
+    kill -9 <PID>
+    ```
+  </Card>
+
+  <Card title="Python Module Not Found" icon="python">
+    Ensure your virtual environment is activated:
+    
+    ```bash
+    source venv/bin/activate
+    pip install -r requirements.txt
+    ```
+  </Card>
+
+  <Card title="CORS Errors" icon="shield">
+    Verify that `BACKEND_URL` in frontend `.env.local` matches your backend URL (default: `http://localhost:8000`)
+  </Card>
+
+  <Card title="Model Download Issues" icon="download">
+    The first backend startup downloads the BGE-base-en-v1.5 model (~400MB). Ensure you have:
+    - Stable internet connection
+    - Sufficient disk space
+    - Patience (may take a few minutes)
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Environment Variables" icon="key" href="/development/environment-variables">
+    Learn about all required API keys and configuration options
+  </Card>
+  
+  <Card title="Deployment Guide" icon="rocket" href="/development/deployment">
+    Deploy GitaChat to Vercel and Railway
+  </Card>
+</CardGroup>

@@ -1,0 +1,466 @@
+---
+title: "Deployment Guide"
+description: "Deploy GitaChat frontend to Vercel and backend to Railway with complete configuration"
+---
+
+## Overview
+
+GitaChat uses a split deployment architecture:
+- **Frontend**: Deployed to Vercel (Next.js optimized hosting)
+- **Backend**: Deployed to Railway (Python/FastAPI with GPU support)
+
+This guide walks you through deploying both services to production.
+
+## Architecture
+
+<CardGroup cols={2}>
+  <Card title="Frontend on Vercel" icon="v">
+    - Next.js 15 with App Router
+    - Automatic deployments from Git
+    - Edge network distribution
+    - Zero-config setup
+  </Card>
+  
+  <Card title="Backend on Railway" icon="train">
+    - FastAPI with Uvicorn
+    - Automatic HTTPS
+    - Environment variable management
+    - Persistent deployments
+  </Card>
+</CardGroup>
+
+## Prerequisites
+
+Before deploying, ensure you have:
+
+<CardGroup cols={3}>
+  <Card title="Git Repository" icon="github">
+    Code pushed to GitHub, GitLab, or Bitbucket
+  </Card>
+  
+  <Card title="API Keys" icon="key">
+    All required API keys ready (see [Environment Variables](/development/environment-variables))
+  </Card>
+  
+  <Card title="Accounts Created" icon="user">
+    - [Vercel account](https://vercel.com)
+    - [Railway account](https://railway.app)
+  </Card>
+</CardGroup>
+
+## Deploy Backend to Railway
+
+Deploy the FastAPI backend first, as the frontend needs the backend URL.
+
+<Steps>
+  <Step title="Create new Railway project">
+    1. Log in to [Railway](https://railway.app)
+    2. Click **New Project**
+    3. Select **Deploy from GitHub repo**
+    4. Authorize Railway to access your repository
+    5. Select your GitaChat repository
+  </Step>
+
+  <Step title="Configure root directory">
+    Since the backend code is in the `backend/` subdirectory:
+    
+    1. Go to **Settings**
+    2. Under **Source**, set **Root Directory** to `backend`
+    3. Click **Save**
+  </Step>
+
+  <Step title="Set environment variables">
+    1. Go to **Variables** tab
+    2. Add the following variables:
+    
+    ```bash
+    PINECONE_API_KEY=xxxxx-xxxxx-xxxxx
+    PINECONE_INDEX=gitachat
+    GPT_KEY=sk-xxxxx
+    ```
+    
+    See [Environment Variables](/development/environment-variables) for details on obtaining these keys.
+  </Step>
+
+  <Step title="Configure deployment settings">
+    Railway should auto-detect Python and use the `Procfile`. Verify:
+    
+    1. Go to **Settings** > **Deploy**
+    2. Ensure **Build Command** is empty (uses Procfile)
+    3. **Start Command** should reference: `web: uvicorn main:app --host 0.0.0.0 --port $PORT`
+    
+    Your `Procfile` should contain:
+    ```
+    web: uvicorn main:app --host 0.0.0.0 --port $PORT
+    ```
+  </Step>
+
+  <Step title="Deploy and get URL">
+    1. Railway will automatically deploy your backend
+    2. Once deployed, go to **Settings** > **Networking**
+    3. Click **Generate Domain** to get a public URL
+    4. Your backend will be available at: `https://your-app.up.railway.app`
+    5. Test the health endpoint: `https://your-app.up.railway.app/health`
+    
+    Expected response: `{"status": "ok"}`
+  </Step>
+</Steps>
+
+### Railway Configuration Tips
+
+<CardGroup cols={2}>
+  <Card title="Resource Usage" icon="gauge">
+    Monitor your usage:
+    - Check **Metrics** tab for CPU/RAM
+    - Model loading takes ~400MB RAM
+    - First request loads the model (slow)
+    - Subsequent requests are fast
+  </Card>
+
+  <Card title="Logs & Debugging" icon="terminal">
+    View logs in real-time:
+    - Click **Deployments** > Latest deployment
+    - View logs to debug issues
+    - Check model loading messages
+    - Monitor API request errors
+  </Card>
+</CardGroup>
+
+## Deploy Frontend to Vercel
+
+<Steps>
+  <Step title="Import project to Vercel">
+    1. Log in to [Vercel](https://vercel.com)
+    2. Click **Add New** > **Project**
+    3. Import your Git repository
+    4. Vercel will detect it's a Next.js project
+  </Step>
+
+  <Step title="Configure root directory">
+    Since the frontend code is in the `frontend/` subdirectory:
+    
+    1. Under **Build & Development Settings**
+    2. Set **Root Directory** to `frontend`
+    3. Keep other settings as default (Vercel auto-detects Next.js)
+  </Step>
+
+  <Step title="Set environment variables">
+    1. Under **Environment Variables**, add:
+    
+    ```bash
+    BACKEND_URL=https://your-app.up.railway.app
+    NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_live_xxxxx
+    CLERK_SECRET_KEY=sk_live_xxxxx
+    NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
+    SUPABASE_SERVICE_ROLE_KEY=xxxxx
+    ```
+    
+    <Warning>
+      Use your Railway backend URL (from previous step) for `BACKEND_URL`. Use **production/live** keys for Clerk, not test keys.
+    </Warning>
+  </Step>
+
+  <Step title="Deploy">
+    1. Click **Deploy**
+    2. Vercel will build and deploy your frontend
+    3. Once complete, you'll get a production URL: `https://your-app.vercel.app`
+    4. Set up a custom domain (optional) under **Settings** > **Domains**
+  </Step>
+</Steps>
+
+### Vercel Configuration Tips
+
+<CardGroup cols={2}>
+  <Card title="Automatic Deployments" icon="git">
+    - Every push to `main` auto-deploys
+    - Preview deployments for PRs
+    - Rollback to previous deployments
+    - View deployment history
+  </Card>
+
+  <Card title="Custom Domain" icon="globe">
+    Add your custom domain:
+    1. Go to **Settings** > **Domains**
+    2. Add domain (e.g., `gitachat.org`)
+    3. Configure DNS records
+    4. Automatic HTTPS with SSL
+  </Card>
+</CardGroup>
+
+## CORS Configuration
+
+Ensure your backend allows requests from your frontend domain.
+
+<Steps>
+  <Step title="Update CORS origins in backend">
+    Edit `backend/main.py` to include your production frontend URL:
+    
+    ```python main.py
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[
+            "http://localhost:3000",
+            "https://gitachat.org",
+            "https://www.gitachat.org",
+            "https://your-app.vercel.app",  # Add your Vercel URL
+        ],
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["Content-Type", "Authorization"],
+    )
+    ```
+  </Step>
+
+  <Step title="Commit and push">
+    ```bash
+    git add backend/main.py
+    git commit -m "Add production frontend URL to CORS"
+    git push
+    ```
+    
+    Railway will automatically redeploy with the updated CORS settings.
+  </Step>
+</Steps>
+
+## Verify Deployment
+
+<CardGroup cols={2}>
+  <Card title="Backend Health Check" icon="server">
+    Test your Railway backend:
+    
+    ```bash
+    curl https://your-app.up.railway.app/health
+    ```
+    
+    Expected: `{"status": "ok"}`
+  </Card>
+  
+  <Card title="Frontend Test" icon="browser">
+    1. Visit your Vercel URL
+    2. Try asking a question
+    3. Verify it returns a verse
+    4. Check browser console for errors
+  </Card>
+</CardGroup>
+
+### End-to-End Test
+
+```bash
+# Test the query endpoint with your production backend
+curl -X POST https://your-app.up.railway.app/api/query \
+  -H "Content-Type: application/json" \
+  -d '{"query": "How do I overcome fear?"}'
+```
+
+You should receive a verse with contextual commentary.
+
+## Production Checklist
+
+<CardGroup cols={2}>
+  <Card title="Security" icon="shield">
+    - [ ] Use production API keys (not test keys)
+    - [ ] Enable rate limiting on Railway
+    - [ ] Set up monitoring and alerts
+    - [ ] Configure Clerk production settings
+    - [ ] Review Supabase RLS policies
+  </Card>
+
+  <Card title="Performance" icon="gauge-high">
+    - [ ] Test backend cold start time
+    - [ ] Monitor Railway resource usage
+    - [ ] Check Vercel analytics
+    - [ ] Optimize images (Next.js Image)
+    - [ ] Enable caching where appropriate
+  </Card>
+
+  <Card title="Monitoring" icon="chart-line">
+    - [ ] Set up error tracking (e.g., Sentry)
+    - [ ] Monitor API usage (OpenAI, Pinecone)
+    - [ ] Check Railway logs regularly
+    - [ ] Review Vercel deployment logs
+    - [ ] Track user queries in Supabase
+  </Card>
+
+  <Card title="Backup & Recovery" icon="database">
+    - [ ] Export Pinecone index data
+    - [ ] Backup Supabase database
+    - [ ] Document deployment process
+    - [ ] Test rollback procedures
+    - [ ] Keep environment variables documented
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+<CardGroup cols={2}>
+  <Card title="Backend Not Responding" icon="server">
+    **Symptoms**: 503 errors, timeouts
+    
+    **Solutions**:
+    - Check Railway deployment status
+    - View logs in Railway dashboard
+    - Verify environment variables are set
+    - Check if model loaded successfully
+    - Ensure Pinecone index is accessible
+    
+    ```bash
+    # Check Railway logs
+    railway logs
+    ```
+  </Card>
+
+  <Card title="CORS Errors" icon="shield">
+    **Symptoms**: Frontend can't reach backend
+    
+    **Solutions**:
+    - Add frontend URL to CORS origins
+    - Verify `BACKEND_URL` in frontend env
+    - Check browser network tab for errors
+    - Ensure Railway domain is active
+  </Card>
+
+  <Card title="Build Failures" icon="triangle-exclamation">
+    **Symptoms**: Deployment fails during build
+    
+    **Solutions**:
+    - Check Vercel/Railway build logs
+    - Verify all dependencies in package.json/requirements.txt
+    - Ensure root directory is set correctly
+    - Check for syntax errors in code
+    - Verify Node/Python versions
+  </Card>
+
+  <Card title="Environment Variable Issues" icon="key">
+    **Symptoms**: Runtime errors about missing config
+    
+    **Solutions**:
+    - Double-check all env vars are set
+    - No typos in variable names
+    - Use correct keys for production
+    - Restart deployments after adding vars
+    - Check Railway/Vercel env var UI
+  </Card>
+</CardGroup>
+
+## Cold Start Optimization
+
+Railway apps may experience cold starts. To optimize:
+
+<CardGroup cols={2}>
+  <Card title="Keep Backend Warm" icon="fire">
+    Set up a cron job to ping your backend every 5 minutes:
+    
+    ```bash
+    # Using a service like cron-job.org
+    GET https://your-app.up.railway.app/health
+    ```
+  </Card>
+
+  <Card title="Optimize Model Loading" icon="download">
+    The backend loads the embedding model on startup:
+    - Model caching in Railway
+    - Use Railway's persistent storage
+    - Pre-warm on deployment
+  </Card>
+</CardGroup>
+
+## Continuous Deployment
+
+<Steps>
+  <Step title="Set up Git workflow">
+    ```bash
+    # Development branch
+    git checkout -b development
+    git push origin development
+    
+    # Production branch
+    git checkout main
+    git push origin main
+    ```
+  </Step>
+
+  <Step title="Configure branch deployments">
+    **Vercel**:
+    - `main` branch → Production
+    - Other branches → Preview deployments
+    
+    **Railway**:
+    - `main` branch → Production
+    - Set up staging environment for `development` branch (optional)
+  </Step>
+
+  <Step title="Create deployment workflow">
+    1. Develop and test locally
+    2. Push to feature branch
+    3. Create pull request
+    4. Review preview deployment (Vercel auto-generates)
+    5. Merge to `main` for production deployment
+  </Step>
+</Steps>
+
+## Monitoring & Analytics
+
+<CardGroup cols={2}>
+  <Card title="Vercel Analytics" icon="chart-simple">
+    Enable in Vercel dashboard:
+    - Page views and traffic
+    - Core Web Vitals
+    - User geography
+    - Device breakdown
+  </Card>
+
+  <Card title="Railway Metrics" icon="gauge">
+    Monitor in Railway dashboard:
+    - CPU and memory usage
+    - Request count and latency
+    - Deployment history
+    - Build times
+  </Card>
+
+  <Card title="API Usage Tracking" icon="chart-line">
+    Monitor your API quotas:
+    - **OpenAI**: Check usage dashboard
+    - **Pinecone**: Monitor vector operations
+    - **Clerk**: Track active users
+    - **Supabase**: Database usage
+  </Card>
+
+  <Card title="Error Tracking" icon="bug">
+    Recommended tools:
+    - **Sentry**: Frontend & backend errors
+    - **LogRocket**: Session replay
+    - **Vercel Logs**: Deployment errors
+    - **Railway Logs**: Runtime errors
+  </Card>
+</CardGroup>
+
+## Cost Optimization
+
+<CardGroup cols={2}>
+  <Card title="Free Tier Limits" icon="money-bill">
+    - **Vercel**: 100GB bandwidth/month
+    - **Railway**: $5 credit/month (hobby plan)
+    - **Pinecone**: 1 pod free tier
+    - **Supabase**: 500MB database free
+  </Card>
+
+  <Card title="Reduce Costs" icon="coins">
+    - Cache OpenAI responses in Supabase
+    - Batch Pinecone queries
+    - Optimize Railway resource usage
+    - Use Vercel Edge caching
+    - Monitor API usage closely
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Local Setup" icon="laptop-code" href="/development/local-setup">
+    Return to local setup guide
+  </Card>
+  
+  <Card title="Environment Variables" icon="key" href="/development/environment-variables">
+    Review all environment configuration
+  </Card>
+</CardGroup>

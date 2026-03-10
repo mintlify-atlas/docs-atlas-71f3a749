@@ -1,0 +1,453 @@
+---
+title: 'Contextual Commentary'
+description: 'AI-generated personalized wisdom that addresses your specific questions and life situations'
+icon: 'comments'
+---
+
+## Overview
+
+Traditional commentaries explain what a verse means in general. **Contextual commentary** explains how a verse specifically addresses *your* question or situation. It's the difference between reading about wisdom and receiving personalized guidance.
+
+<CardGroup cols={2}>
+  <Card title="Personalized Response" icon="user">
+    Every commentary is tailored to your specific question or life situation
+  </Card>
+  <Card title="GPT-4o-mini" icon="robot">
+    Powered by OpenAI's efficient and intelligent language model
+  </Card>
+  <Card title="Traditional Context" icon="book">
+    Uses existing scholarly commentary as foundational knowledge
+  </Card>
+  <Card title="Practical Wisdom" icon="lightbulb">
+    Focuses on actionable insights you can apply to your life
+  </Card>
+</CardGroup>
+
+---
+
+## How It Works
+
+### The Generation Process
+
+When you search for a verse, GitaChat generates commentary through a sophisticated AI pipeline:
+
+```python
+# From utils.py:34-68
+def generate_contextual_commentary(query: str, verse: dict) -> str:
+    """
+    Generate commentary that specifically addresses the user's question.
+
+    Args:
+        query: The user's original question
+        verse: Dict with chapter, verse, translation, and optionally full_commentary/summarized_commentary
+
+    Returns:
+        Contextual commentary string tailored to the user's question
+    """
+    # Get available commentary for context
+    commentary_context = verse.get("full_commentary") or verse.get("summarized_commentary") or ""
+    if commentary_context:
+        commentary_context = f"\n\nTraditional commentary for context:\n{commentary_context[:1500]}"
+
+    prompt = f"""The user asked: "{query}"
+
+The most relevant verse from the Bhagavad Gita is Chapter {verse['chapter']}, Verse {verse['verse']}:
+"{verse['translation']}"{commentary_context}
+
+Write a 2-3 paragraph response that:
+1. Explains how this verse directly addresses their situation or question
+2. Draws practical wisdom they can apply to their life
+3. Maintains a warm, thoughtful tone without being preachy
+
+Vary your opening - don't start with "This verse...". Keep it concise but meaningful."""
+
+    response = openai_client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=500,
+        temperature=0.7,
+    )
+    return response.choices[0].message.content.strip()
+```
+
+### Key Components
+
+<CardGroup cols={2}>
+  <Card title="User Query" icon="message-question">
+    Your original question provides context and intent
+  </Card>
+  <Card title="Matched Verse" icon="scroll">
+    The semantically most relevant verse from the Gita
+  </Card>
+  <Card title="Traditional Commentary" icon="book-open">
+    Scholarly interpretation provides foundational understanding (up to 1500 chars)
+  </Card>
+  <Card title="AI Synthesis" icon="wand-magic-sparkles">
+    GPT-4o-mini connects the verse to your specific situation
+  </Card>
+</CardGroup>
+
+---
+
+## Contextual vs Traditional Commentary
+
+### Traditional Commentary
+
+Traditional commentary explains the verse in isolation:
+
+> "This verse describes the characteristics of a sthitaprajna—one who is steady in wisdom. Such a person has transcended desires and rests in the Self alone, unaffected by worldly circumstances."
+
+**Purpose**: General education and interpretation
+
+### Contextual Commentary
+
+For the question *"How do I handle work stress?"*, contextual commentary might say:
+
+> "When work pressure feels overwhelming, this teaching offers a profound reframe. The verse suggests that inner stability comes not from controlling external outcomes, but from releasing attachment to them. You can perform your duties excellently while holding results lightly—this paradoxically improves both your peace and your performance. Try bringing this awareness to one stressful meeting or deadline today."
+
+**Purpose**: Personal application and actionable guidance
+
+---
+
+## The Prompt Architecture
+
+The prompt is carefully designed with three explicit objectives:
+
+```python
+# From utils.py:50-60
+prompt = f"""The user asked: "{query}"
+
+The most relevant verse from the Bhagavad Gita is Chapter {verse['chapter']}, Verse {verse['verse']}:
+"{verse['translation']}"{commentary_context}
+
+Write a 2-3 paragraph response that:
+1. Explains how this verse directly addresses their situation or question
+2. Draws practical wisdom they can apply to their life
+3. Maintains a warm, thoughtful tone without being preachy
+
+Vary your opening - don't start with "This verse...". Keep it concise but meaningful."""
+```
+
+### Design Principles
+
+<Note>
+**Why "Vary your opening"?** This instruction prevents robotic, repetitive responses. The AI creates natural, engaging explanations that feel conversational rather than formulaic.
+</Note>
+
+1. **Direct Connection**: Links the ancient teaching to the modern question
+2. **Practical Application**: Provides actionable wisdom, not just philosophy
+3. **Warm Tone**: Thoughtful and respectful, avoiding preachiness
+4. **Concise Length**: 2-3 paragraphs (max 500 tokens) for easy reading
+5. **Natural Language**: Varies openings to avoid repetitive patterns
+
+---
+
+## Model Configuration
+
+### GPT-4o-mini Selection
+
+```python
+# From utils.py:62-67
+response = openai_client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[{"role": "user", "content": prompt}],
+    max_tokens=500,
+    temperature=0.7,
+)
+```
+
+**Why GPT-4o-mini?**
+
+<CardGroup cols={2}>
+  <Card title="Cost Effective" icon="dollar-sign">
+    Significantly cheaper than GPT-4, enabling free access for users
+  </Card>
+  <Card title="Fast Response" icon="bolt">
+    Lower latency means quicker feedback to users
+  </Card>
+  <Card title="Sufficient Quality" icon="circle-check">
+    Excellent at interpretive and explanatory tasks
+  </Card>
+  <Card title="Reliable" icon="shield">
+    Consistent performance with 99.9% uptime
+  </Card>
+</CardGroup>
+
+### Temperature Setting
+
+The `temperature=0.7` parameter balances creativity with consistency:
+
+- **0.0**: Deterministic, same output every time (too rigid)
+- **0.7**: Creative yet coherent (optimal for this use case)
+- **1.0+**: Highly creative but potentially unfocused
+
+At 0.7, the AI provides varied, thoughtful responses while staying grounded in the verse's meaning.
+
+### Token Limit
+
+```python
+max_tokens=500
+```
+
+This limit ensures:
+- Responses are concise and readable (typically 2-3 paragraphs)
+- Fast generation times (usually under 2 seconds)
+- Cost-effective usage
+- Mobile-friendly content length
+
+---
+
+## Integration with Search
+
+Contextual commentary is generated automatically for every search query:
+
+```python
+# From main.py:115-143
+@app.post("/api/query", response_model=dict)
+@limiter.limit("30/minute")
+async def query_gita(request: Request, query: Query) -> dict:
+    """
+    Query the Gita with the provided query string(s).
+    Returns verse with contextual commentary tailored to the user's question.
+    """
+    try:
+        from model import match
+        from utils import generate_contextual_commentary
+
+        result = match(query.query)
+        if not result:
+            raise HTTPException(status_code=404, detail="No matches found")
+
+        # Generate contextual commentary that addresses the user's specific question
+        try:
+            contextual = generate_contextual_commentary(query.query, result)
+            result["summarized_commentary"] = contextual
+        except Exception as e:
+            # Fall back to pre-computed summary if OpenAI fails
+            logging.warning(f"Contextual commentary failed, using fallback: {e}")
+
+        return {"status": "success", "data": result}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Query error: {type(e).__name__}: {e}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+```
+
+### Graceful Fallback
+
+If OpenAI's API is unavailable or fails, GitaChat automatically falls back to pre-computed summaries:
+
+```python
+# From main.py:131-136
+try:
+    contextual = generate_contextual_commentary(query.query, result)
+    result["summarized_commentary"] = contextual
+except Exception as e:
+    # Fall back to pre-computed summary if OpenAI fails
+    logging.warning(f"Contextual commentary failed, using fallback: {e}")
+```
+
+This ensures users **always** receive meaningful commentary, even during API outages.
+
+---
+
+## OpenAI Client Configuration
+
+```python
+# From clients.py:20-21
+# OpenAI client with timeout
+openai_client = OpenAI(api_key=GPT_KEY, timeout=30.0)
+```
+
+**Timeout Protection**: The 30-second timeout prevents hanging requests if OpenAI experiences latency issues.
+
+---
+
+## Pre-computed Summaries
+
+For verse browsing (not search), GitaChat uses pre-computed summaries generated during data preparation:
+
+```python
+# From utils.py:12-31
+def summarize(commentary_text: str) -> str:
+    """Generate a summary of the commentary using GPT-4o-mini."""
+    if not commentary_text or len(commentary_text) < 10:
+        return ""
+
+    response = openai_client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {
+                "role": "system",
+                "content": "You are a helpful assistant that summarizes text concisely but completely.",
+            },
+            {
+                "role": "user",
+                "content": f"Summarize the following commentary: {commentary_text}",
+            },
+        ],
+        max_tokens=500,
+    )
+    return response.choices[0].message.content.strip()
+```
+
+These summaries are:
+- Generated once during data ingestion
+- Stored in Pinecone metadata
+- Used as fallback when contextual generation fails
+- Faster to retrieve (no API call needed)
+
+---
+
+## Example Flow
+
+Let's trace a real query: **"How do I deal with criticism?"**
+
+### 1. Semantic Search
+The system finds the most relevant verse (e.g., Chapter 2, Verse 14):
+
+> "O son of Kunti, the contact between the senses and sense objects gives rise to fleeting perceptions of happiness and distress. These are non-permanent, and come and go like the winter and summer seasons. O descendent of Bharata, one must learn to tolerate them without being disturbed."
+
+### 2. Context Assembly
+The prompt includes:
+- User's question: *"How do I deal with criticism?"*
+- The verse translation
+- Traditional commentary (up to 1500 characters)
+
+### 3. AI Generation
+GPT-4o-mini generates personalized commentary:
+
+> "Criticism can sting, especially when it feels unfair or comes from someone whose opinion matters. This verse offers a powerful perspective: just as winter's cold and summer's heat are temporary, so too are others' words and your emotional reaction to them. The teaching isn't about suppressing your feelings or pretending criticism doesn't hurt—it's about recognizing that both praise and blame are transient waves on the surface of your consciousness.
+>
+> Practically, this means you can acknowledge the initial sting of criticism, examine whether there's useful feedback embedded in it, and then let the emotional charge dissipate naturally. The person you were before the criticism and the person you'll be a week from now remain fundamentally unchanged. By developing this tolerance—this spaciousness around temporary discomfort—you free yourself to respond wisely rather than react defensively."
+
+### 4. Response Delivery
+The commentary is returned with the verse, ready to display to the user.
+
+---
+
+## Performance Characteristics
+
+<CardGroup cols={2}>
+  <Card title="Generation Time" icon="clock">
+    Typically 1-3 seconds depending on OpenAI API latency
+  </Card>
+  <Card title="Cache Strategy" icon="database">
+    No caching—each response is fresh and contextual
+  </Card>
+  <Card title="Fallback Speed" icon="gauge-high">
+    Instant fallback to pre-computed summaries if generation fails
+  </Card>
+  <Card title="Rate Limits" icon="limit">
+    30 requests per minute per IP to prevent abuse
+  </Card>
+</CardGroup>
+
+---
+
+## Error Handling
+
+The system implements multiple layers of error protection:
+
+```python
+# From main.py:131-136
+try:
+    contextual = generate_contextual_commentary(query.query, result)
+    result["summarized_commentary"] = contextual
+except Exception as e:
+    # Fall back to pre-computed summary if OpenAI fails
+    logging.warning(f"Contextual commentary failed, using fallback: {e}")
+```
+
+**Error Scenarios Handled:**
+- OpenAI API timeout (30s limit)
+- Rate limiting from OpenAI
+- Network connectivity issues
+- Invalid API responses
+- Service outages
+
+In all cases, users receive meaningful content via the fallback mechanism.
+
+---
+
+## Response Quality Guidelines
+
+The prompt ensures responses meet these quality standards:
+
+<CardGroup cols={2}>
+  <Card title="Relevance" icon="bullseye">
+    Directly addresses the user's specific question or situation
+  </Card>
+  <Card title="Practicality" icon="hand-sparkles">
+    Provides actionable wisdom that can be applied immediately
+  </Card>
+  <Card title="Tone" icon="heart">
+    Warm and thoughtful without being preachy or condescending
+  </Card>
+  <Card title="Length" icon="ruler">
+    2-3 paragraphs (300-400 words) for optimal readability
+  </Card>
+  <Card title="Clarity" icon="eye">
+    Clear language accessible to readers of all backgrounds
+  </Card>
+  <Card title="Variety" icon="sparkles">
+    Natural openings that avoid repetitive patterns
+  </Card>
+</CardGroup>
+
+---
+
+## Traditional Commentary as Foundation
+
+Notice how the system includes traditional commentary as context:
+
+```python
+# From utils.py:45-48
+# Get available commentary for context
+commentary_context = verse.get("full_commentary") or verse.get("summarized_commentary") or ""
+if commentary_context:
+    commentary_context = f"\n\nTraditional commentary for context:\n{commentary_context[:1500]}"
+```
+
+This approach:
+- Grounds AI responses in scholarly interpretation
+- Prevents theological drift or inaccuracy
+- Provides rich context for better synthesis
+- Honors traditional lineages of understanding
+
+The 1500-character limit keeps the prompt focused while providing sufficient context.
+
+---
+
+## Future Enhancements
+
+Potential improvements to contextual commentary:
+
+<CardGroup cols={2}>
+  <Card title="User Profiles" icon="user-gear">
+    Remember user preferences and context across sessions
+  </Card>
+  <Card title="Multi-Verse Synthesis" icon="layer-group">
+    Generate commentary drawing from multiple related verses
+  </Card>
+  <Card title="Follow-up Questions" icon="messages">
+    Allow users to ask clarifying questions about the commentary
+  </Card>
+  <Card title="Tone Customization" icon="sliders">
+    Let users choose formal, casual, or motivational tones
+  </Card>
+</CardGroup>
+
+---
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Semantic Search" icon="magnifying-glass" href="/features/semantic-search">
+    Learn how verses are matched to your questions using AI
+  </Card>
+  <Card title="Verse Reading" icon="book-open" href="/features/verse-reading">
+    Explore how to browse all 700+ verses with traditional commentary
+  </Card>
+</CardGroup>

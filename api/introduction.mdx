@@ -1,0 +1,615 @@
+---
+title: 'API Introduction'
+description: 'Learn how to integrate with the GitaChat API to access Bhagavad Gita verses, semantic search, and user data'
+---
+
+## Overview
+
+The GitaChat API provides programmatic access to the Bhagavad Gita with semantic search, verse retrieval, bookmarks, notes, and daily verse features. The API uses REST principles with JSON request and response bodies.
+
+## Base URLs
+
+GitaChat operates with two API layers:
+
+<CardGroup cols={2}>
+  <Card title="Backend API" icon="server">
+    **Production:** `https://api.gitachat.org`
+    
+    **Local:** `http://localhost:8000`
+    
+    Direct access to vector search and verse data
+  </Card>
+  <Card title="Frontend API" icon="globe">
+    **Production:** `https://gitachat.org/api`
+    
+    **Local:** `http://localhost:3000/api`
+    
+    User features with Clerk authentication
+  </Card>
+</CardGroup>
+
+## Rate Limiting
+
+GitaChat implements rate limiting to ensure fair usage and system stability. Limits are applied per IP address or authenticated user.
+
+### Backend Rate Limits (SlowAPI)
+
+The backend uses SlowAPI with IP-based rate limiting:
+
+- **Query Endpoint:** 30 requests per minute
+- **Verse Endpoint:** 30 requests per minute  
+- **All Verses:** 10 requests per minute
+
+### Frontend Rate Limits
+
+Frontend endpoints have additional per-user rate limiting:
+
+<CardGroup cols={2}>
+  <Card title="Query Search" icon="magnifying-glass">
+    20 requests per minute
+  </Card>
+  <Card title="Verse Retrieval" icon="book">
+    60 requests per minute
+  </Card>
+  <Card title="Bookmarks" icon="bookmark">
+    30 requests per minute
+  </Card>
+  <Card title="Notes" icon="note">
+    No explicit limit (Clerk auth required)
+  </Card>
+  <Card title="History" icon="clock">
+    30 requests per minute (GET)
+    
+    5 requests per minute (DELETE)
+  </Card>
+  <Card title="Daily Verse" icon="calendar">
+    10 requests per minute
+  </Card>
+  <Card title="Email Subscription" icon="envelope">
+    10 requests per minute
+  </Card>
+  <Card title="Image Generation" icon="image">
+    5 requests per hour (most restrictive)
+  </Card>
+</CardGroup>
+
+### Rate Limit Response
+
+When rate limited, you'll receive a `429 Too Many Requests` response:
+
+```json
+{
+  "error": "Too many requests. Please try again later."
+}
+```
+
+For image generation, the error includes time remaining:
+
+```json
+{
+  "error": "Rate limit reached. Try again in 45 minutes."
+}
+```
+
+## Response Format
+
+All API responses follow a consistent structure:
+
+### Success Response
+
+```json
+{
+  "status": "success",
+  "data": {
+    // Response data here
+  }
+}
+```
+
+### Error Response
+
+```json
+{
+  "error": "Error message description"
+}
+```
+
+Common HTTP status codes:
+- `200` - Success
+- `400` - Bad Request (invalid parameters)
+- `401` - Unauthorized (authentication required)
+- `404` - Not Found
+- `429` - Too Many Requests (rate limited)
+- `500` - Internal Server Error
+- `503` - Service Unavailable (database not configured)
+- `504` - Gateway Timeout
+
+## Available Endpoints
+
+<CardGroup cols={2}>
+  <Card title="Query Search" icon="magnifying-glass" href="#query-search">
+    Semantic search using natural language queries
+  </Card>
+  <Card title="Get Specific Verse" icon="book-bookmark" href="#get-verse">
+    Retrieve verse by chapter and verse number
+  </Card>
+  <Card title="Get All Verses" icon="books" href="#all-verses">
+    Fetch all 703 verses for client-side search
+  </Card>
+  <Card title="Bookmarks" icon="bookmark" href="#bookmarks">
+    Save and manage favorite verses
+  </Card>
+  <Card title="Notes" icon="note-sticky" href="#notes">
+    Create personal notes on verses
+  </Card>
+  <Card title="Query History" icon="clock-rotate-left" href="#history">
+    Access your search history
+  </Card>
+  <Card title="Daily Verse" icon="calendar-day" href="#daily-verse">
+    Get personalized daily verse
+  </Card>
+  <Card title="Email Subscription" icon="envelope" href="#email-subscription">
+    Manage daily email preferences
+  </Card>
+  <Card title="Generate Image" icon="image" href="#generate-image">
+    Create AI images for verses
+  </Card>
+  <Card title="Health Check" icon="heart-pulse" href="#health">
+    Backend service status
+  </Card>
+</CardGroup>
+
+## Query Search
+
+Search for relevant verses using natural language queries with semantic matching.
+
+**Endpoint:** `POST /api/query`
+
+**Rate Limit:** 30/minute (backend), 20/minute (frontend)
+
+**Request Body:**
+
+<ParamField body="query" type="string" required>
+  Natural language query (1-500 characters)
+</ParamField>
+
+**Example Request:**
+
+```bash
+curl -X POST https://api.gitachat.org/api/query \
+  -H "Content-Type: application/json" \
+  -d '{"query": "How do I overcome fear and anxiety?"}'
+```
+
+**Response:**
+
+<ResponseField name="status" type="string">
+  Always "success" for successful requests
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  <ResponseField name="chapter" type="integer">
+    Chapter number (1-18)
+  </ResponseField>
+  
+  <ResponseField name="verse" type="integer">
+    Verse number within chapter
+  </ResponseField>
+  
+  <ResponseField name="translation" type="string">
+    English translation of the verse
+  </ResponseField>
+  
+  <ResponseField name="summarized_commentary" type="string">
+    Contextual commentary tailored to the query
+  </ResponseField>
+  
+  <ResponseField name="full_commentary" type="string">
+    Complete traditional commentary (optional)
+  </ResponseField>
+</ResponseField>
+
+**Example Response:**
+
+```json
+{
+  "status": "success",
+  "data": {
+    "chapter": 2,
+    "verse": 47,
+    "translation": "You have a right to perform your prescribed duty, but you are not entitled to the fruits of action...",
+    "summarized_commentary": "This verse addresses anxiety by teaching detachment from outcomes...",
+    "full_commentary": "Traditional commentary explaining the verse in detail..."
+  }
+}
+```
+
+## Get Verse
+
+Retrieve a specific verse by chapter and verse number.
+
+**Endpoint:** `POST /api/verse`
+
+**Rate Limit:** 30/minute (backend), 60/minute (frontend)
+
+**Request Body:**
+
+<ParamField body="chapter" type="integer" required>
+  Chapter number (1-18)
+</ParamField>
+
+<ParamField body="verse" type="integer" required>
+  Verse number (1-78, varies by chapter)
+</ParamField>
+
+**Example Request:**
+
+```bash
+curl -X POST https://api.gitachat.org/api/verse \
+  -H "Content-Type: application/json" \
+  -d '{"chapter": 2, "verse": 47}'
+```
+
+**Response:** Same format as Query Search endpoint.
+
+## All Verses
+
+Retrieve all 703 verses with chapter, verse, translation, and summary data.
+
+**Endpoint:** `GET /api/all-verses`
+
+**Rate Limit:** 10/minute
+
+**Cache:** Responses cached for 1 hour
+
+**Example Request:**
+
+```bash
+curl https://api.gitachat.org/api/all-verses
+```
+
+**Response:**
+
+```json
+{
+  "status": "success",
+  "data": [
+    {
+      "chapter": 1,
+      "verse": 1,
+      "translation": "Dhritarashtra said: O Sanjaya...",
+      "summary": "Brief summary (max 500 chars)"
+    },
+    // ... 702 more verses
+  ]
+}
+```
+
+## Bookmarks
+
+Manage saved verses (requires authentication).
+
+**Base Endpoint:** `/api/bookmarks`
+
+### GET - List Bookmarks
+
+**Rate Limit:** 30/minute
+
+**Authentication:** Required (Clerk token)
+
+**Example Request:**
+
+```bash
+curl https://gitachat.org/api/bookmarks \
+  -H "Authorization: Bearer YOUR_CLERK_TOKEN"
+```
+
+**Response:**
+
+```json
+[
+  {
+    "id": "uuid",
+    "user_id": "user_xxx",
+    "chapter": 2,
+    "verse": 47,
+    "translation": "You have a right to perform...",
+    "summarized_commentary": "This verse teaches...",
+    "created_at": "2024-01-15T10:30:00Z"
+  }
+]
+```
+
+### POST - Add Bookmark
+
+**Request Body:**
+
+<ParamField body="chapter" type="integer" required>
+  Chapter number
+</ParamField>
+
+<ParamField body="verse" type="integer" required>
+  Verse number
+</ParamField>
+
+<ParamField body="translation" type="string" required>
+  Verse translation text
+</ParamField>
+
+<ParamField body="summarized_commentary" type="string" required>
+  Commentary text
+</ParamField>
+
+### DELETE - Remove Bookmark
+
+**Query Parameters:**
+
+<ParamField query="chapter" type="integer" required>
+  Chapter number
+</ParamField>
+
+<ParamField query="verse" type="integer" required>
+  Verse number
+</ParamField>
+
+**Example:**
+
+```bash
+curl -X DELETE "https://gitachat.org/api/bookmarks?chapter=2&verse=47" \
+  -H "Authorization: Bearer YOUR_CLERK_TOKEN"
+```
+
+## Notes
+
+Create personal notes on verses (requires authentication).
+
+**Base Endpoint:** `/api/notes`
+
+### GET - Fetch Notes
+
+Fetch a specific note or all user notes.
+
+**Query Parameters (optional):**
+
+<ParamField query="chapter" type="integer">
+  Chapter number (with verse for specific note)
+</ParamField>
+
+<ParamField query="verse" type="integer">
+  Verse number (with chapter for specific note)
+</ParamField>
+
+### POST - Save Note
+
+**Request Body:**
+
+<ParamField body="chapter" type="integer" required>
+  Chapter number
+</ParamField>
+
+<ParamField body="verse" type="integer" required>
+  Verse number
+</ParamField>
+
+<ParamField body="note_text" type="string" required>
+  Note content (max 5000 characters)
+</ParamField>
+
+### DELETE - Remove Note
+
+**Query Parameters:**
+
+<ParamField query="chapter" type="integer" required>
+  Chapter number
+</ParamField>
+
+<ParamField query="verse" type="integer" required>
+  Verse number
+</ParamField>
+
+## History
+
+Access query search history (requires authentication).
+
+**Base Endpoint:** `/api/history`
+
+### GET - Fetch History
+
+**Rate Limit:** 30/minute
+
+**Response:**
+
+```json
+[
+  {
+    "id": "uuid",
+    "user_id": "user_xxx",
+    "query": "How to overcome fear?",
+    "chapter": 2,
+    "verse": 47,
+    "translation": "...",
+    "summarized_commentary": "...",
+    "created_at": "2024-01-15T10:30:00Z"
+  }
+]
+```
+
+### DELETE - Clear History
+
+**Rate Limit:** 5/minute
+
+Deletes all query history for the authenticated user.
+
+## Daily Verse
+
+Get personalized daily verse (prioritizes unseen verses).
+
+**Endpoint:** `GET /api/daily`
+
+**Rate Limit:** 10/minute
+
+**Authentication:** Required
+
+**Query Parameters:**
+
+<ParamField query="tz" type="string">
+  Timezone (e.g., "America/New_York", defaults to "UTC")
+</ParamField>
+
+**Response:**
+
+```json
+{
+  "chapter": 3,
+  "verse": 21,
+  "translation": "Whatever action a great man performs...",
+  "summarized_commentary": "...",
+  "cached": false
+}
+```
+
+## Email Subscription
+
+Manage daily email verse subscriptions.
+
+**Base Endpoint:** `/api/email-subscription`
+
+**Rate Limit:** 10/minute
+
+### GET - Check Status
+
+**Response:**
+
+```json
+{
+  "subscribed": true,
+  "timezone": "America/New_York"
+}
+```
+
+### POST - Subscribe
+
+**Request Body:**
+
+<ParamField body="timezone" type="string">
+  User's timezone (defaults to "UTC")
+</ParamField>
+
+### DELETE - Unsubscribe
+
+Sets subscription to inactive.
+
+## Generate Image
+
+Generate AI-powered images for verses using Replicate.
+
+**Endpoint:** `POST /api/generate-image`
+
+**Rate Limit:** 5 per hour (strictest limit)
+
+**Authentication:** Required
+
+**Request Body:**
+
+<ParamField body="chapter" type="integer" required>
+  Chapter number
+</ParamField>
+
+<ParamField body="verse" type="integer" required>
+  Verse number
+</ParamField>
+
+<ParamField body="translation" type="string" required>
+  Verse translation text
+</ParamField>
+
+**Response:**
+
+```json
+{
+  "imageUrl": "https://storage.example.com/verse-images/2-47-hash.webp",
+  "shareUrl": "https://gitachat.org/image/uuid",
+  "cached": false
+}
+```
+
+### GET - Check Existing Image
+
+**Query Parameters:**
+
+<ParamField query="chapter" type="integer" required>
+  Chapter number
+</ParamField>
+
+<ParamField query="verse" type="integer" required>
+  Verse number
+</ParamField>
+
+**Response:**
+
+```json
+{
+  "exists": true,
+  "imageUrl": "...",
+  "shareUrl": "..."
+}
+```
+
+## Health
+
+Check backend service status.
+
+**Endpoint:** `GET /health`
+
+**No Rate Limit**
+
+**Response:**
+
+```json
+{
+  "status": "ok"
+}
+```
+
+## CORS Policy
+
+The backend accepts requests from:
+- `http://localhost:3000` (development)
+- `https://gitachat.org` (production)
+- `https://www.gitachat.org` (production)
+
+**Allowed Methods:** `GET`, `POST`, `OPTIONS`
+
+**Allowed Headers:** `Content-Type`, `Authorization`
+
+**Credentials:** Enabled
+
+## Technical Implementation
+
+<CardGroup cols={2}>
+  <Card title="Vector Search" icon="brain">
+    Uses Pinecone with BGE-base embeddings (768-dim)
+  </Card>
+  <Card title="Model" icon="microchip">
+    BAAI/bge-base-en-v1.5 for semantic search
+  </Card>
+  <Card title="Database" icon="database">
+    Supabase (PostgreSQL) for user data
+  </Card>
+  <Card title="Authentication" icon="lock">
+    Clerk for user management
+  </Card>
+</CardGroup>
+
+## Best Practices
+
+1. **Respect Rate Limits:** Implement exponential backoff for 429 responses
+2. **Cache Responses:** The `/api/all-verses` endpoint is cached for 1 hour
+3. **Handle Timeouts:** Backend requests timeout after 30 seconds (15s for verse)
+4. **Validate Input:** Chapters range 1-18, verses vary (max 78 in chapter 18)
+5. **Use HTTPS:** Always use HTTPS in production
+6. **Store Tokens Securely:** Never expose API tokens in client-side code
+
+## Need Help?
+
+For support with the GitaChat API, visit [gitachat.org](https://gitachat.org) or check the authentication documentation.

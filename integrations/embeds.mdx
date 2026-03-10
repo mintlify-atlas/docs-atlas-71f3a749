@@ -1,0 +1,274 @@
+---
+title: "Embed GitaChat"
+description: "Embed GitaChat verses on your website using iframes"
+icon: "code"
+---
+
+## Overview
+
+The GitaChat embed feature allows you to display daily verses from the Bhagavad Gita directly on your website. The embed automatically updates daily with a new verse, providing your visitors with spiritual wisdom.
+
+<CardGroup cols={2}>
+  <Card title="Simple Integration" icon="bolt">
+    Add a verse widget with just a few lines of HTML
+  </Card>
+  <Card title="Daily Updates" icon="calendar">
+    Automatically displays a different verse each day
+  </Card>
+  <Card title="Fully Styled" icon="palette">
+    Pre-styled widget matches GitaChat's aesthetic
+  </Card>
+  <Card title="Lightweight" icon="feather">
+    Fast-loading iframe with minimal overhead
+  </Card>
+</CardGroup>
+
+## Basic Implementation
+
+### Iframe Embed
+
+The simplest way to embed GitaChat is using an iframe that points to the widget endpoint:
+
+```html
+<iframe
+  src="https://gitachat.org/widget"
+  width="100%"
+  height="200"
+  frameborder="0"
+  style="border-radius: 8px; max-width: 400px;"
+></iframe>
+```
+
+This code creates an embedded widget displaying the daily verse. The widget is automatically updated each day based on a rotation through all verses.
+
+### Implementation Steps
+
+<Steps>
+  <Step title="Copy the embed code">
+    Visit [gitachat.org/embed](https://gitachat.org/embed) to access the embed code generator with a live preview
+  </Step>
+  <Step title="Paste into your HTML">
+    Add the iframe code to your website's HTML where you want the widget to appear
+  </Step>
+  <Step title="Customize dimensions">
+    Adjust the `width`, `height`, and `max-width` properties to fit your layout
+  </Step>
+</Steps>
+
+## Configuration Options
+
+### Sizing
+
+Customize the widget dimensions to fit your layout:
+
+```html
+<!-- Compact widget -->
+<iframe
+  src="https://gitachat.org/widget"
+  width="100%"
+  height="180"
+  frameborder="0"
+  style="border-radius: 8px; max-width: 350px;"
+></iframe>
+
+<!-- Larger widget -->
+<iframe
+  src="https://gitachat.org/widget"
+  width="100%"
+  height="250"
+  frameborder="0"
+  style="border-radius: 12px; max-width: 600px;"
+></iframe>
+```
+
+### Styling
+
+The iframe accepts standard CSS styling through the `style` attribute:
+
+<CardGroup cols={2}>
+  <Card title="Border Radius" icon="circle">
+    Control corner rounding with `border-radius`
+  </Card>
+  <Card title="Max Width" icon="arrows-left-right">
+    Set maximum width with `max-width`
+  </Card>
+  <Card title="Box Shadow" icon="sun">
+    Add shadows with `box-shadow`
+  </Card>
+  <Card title="Margin/Padding" icon="expand">
+    Control spacing with standard CSS properties
+  </Card>
+</CardGroup>
+
+```html
+<iframe
+  src="https://gitachat.org/widget"
+  width="100%"
+  height="200"
+  frameborder="0"
+  style="
+    border-radius: 12px;
+    max-width: 400px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    margin: 20px auto;
+  "
+></iframe>
+```
+
+## Widget Endpoint
+
+### Daily Verse Logic
+
+The widget displays a consistent "verse of the day" that changes daily. The verse selection is deterministic based on the current date:
+
+**Source:** `/home/daytona/workspace/source/frontend/app/widget/page.tsx:2-6`
+
+```typescript
+function getDailyVerseIndex(date: Date): number {
+  const start = new Date("2024-01-01");
+  const diff = Math.floor((date.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+  return diff % 700; // Cycle through ~700 verses
+}
+```
+
+The algorithm:
+1. Calculates days elapsed since January 1, 2024
+2. Uses modulo 700 to cycle through the verse collection
+3. Ensures the same verse appears globally for any given day
+
+### Data Source
+
+The widget fetches verse data from the backend API:
+
+**Source:** `/home/daytona/workspace/source/frontend/app/widget/page.tsx:8-31`
+
+```typescript
+async function getVerseOfTheDay(): Promise<{
+  chapter: number;
+  verse: number;
+  translation: string;
+} | null> {
+  const backendUrl = process.env.BACKEND_URL || "http://localhost:8000";
+  const res = await fetch(`${backendUrl}/api/all-verses`, {
+    next: { revalidate: 3600 }, // Cache for 1 hour
+  });
+  
+  const data = await res.json();
+  const verses = data.data || [];
+  const index = getDailyVerseIndex(new Date());
+  return verses[index % verses.length];
+}
+```
+
+## Use Cases
+
+<CardGroup cols={2}>
+  <Card title="Blog Sidebars" icon="sidebar">
+    Add daily spiritual wisdom to your blog's sidebar
+  </Card>
+  <Card title="Landing Pages" icon="house">
+    Enhance landing pages with inspirational verses
+  </Card>
+  <Card title="Community Sites" icon="users">
+    Share daily guidance on forums or community platforms
+  </Card>
+  <Card title="Personal Websites" icon="user">
+    Display verses on portfolios or personal sites
+  </Card>
+</CardGroup>
+
+## Responsive Design
+
+The widget automatically adapts to different screen sizes. For optimal responsive behavior:
+
+```html
+<!-- Mobile-friendly approach -->
+<div style="width: 100%; max-width: 400px; margin: 0 auto;">
+  <iframe
+    src="https://gitachat.org/widget"
+    width="100%"
+    height="200"
+    frameborder="0"
+    style="border-radius: 8px; display: block;"
+  ></iframe>
+</div>
+```
+
+### Responsive Breakpoints
+
+```css
+/* Adjust widget size based on viewport */
+@media (max-width: 768px) {
+  .gita-widget {
+    height: 180px;
+    max-width: 100%;
+  }
+}
+
+@media (min-width: 769px) {
+  .gita-widget {
+    height: 200px;
+    max-width: 400px;
+  }
+}
+```
+
+## Technical Details
+
+<CardGroup cols={2}>
+  <Card title="Caching" icon="clock">
+    Widget data is cached for 1 hour for optimal performance
+  </Card>
+  <Card title="No Navigation" icon="eye-slash">
+    The widget route hides the main navigation for clean embedding
+  </Card>
+  <Card title="Server-Side Rendered" icon="server">
+    Widget content is rendered on the server for fast loading
+  </Card>
+  <Card title="Error Handling" icon="shield">
+    Graceful fallback if verses cannot be loaded
+  </Card>
+</CardGroup>
+
+### Navigation Exclusion
+
+The widget page automatically hides the GitaChat navigation to provide a clean embed experience:
+
+**Source:** `/home/daytona/workspace/source/frontend/app/components/Nav.tsx:31-34`
+
+```tsx
+// Hide nav on widget page (for iframe embedding)
+if (pathname === "/widget") {
+  return null;
+}
+```
+
+## Best Practices
+
+<Steps>
+  <Step title="Set appropriate dimensions">
+    Use a minimum height of 180px to ensure verse text displays properly
+  </Step>
+  <Step title="Center the widget">
+    Use `margin: 0 auto` and a container div for centered placement
+  </Step>
+  <Step title="Match your theme">
+    The widget uses a dark theme that works well on most backgrounds
+  </Step>
+  <Step title="Test responsively">
+    Verify the embed looks good on mobile, tablet, and desktop
+  </Step>
+</Steps>
+
+## Support
+
+Need help with embedding? The GitaChat embed page at [gitachat.org/embed](https://gitachat.org/embed) provides:
+
+- Live preview of the widget
+- Copy-to-clipboard functionality
+- Step-by-step usage instructions
+- Visual examples
+
+<Card title="Embed Generator" icon="link" href="https://gitachat.org/embed">
+  Access the interactive embed code generator
+</Card>

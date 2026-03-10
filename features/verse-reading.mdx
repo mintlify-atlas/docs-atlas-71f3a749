@@ -1,0 +1,598 @@
+---
+title: 'Verse Reading'
+description: 'Browse and explore all 700+ verses of the Bhagavad Gita with dual commentary modes'
+icon: 'book-open'
+---
+
+## Overview
+
+Beyond semantic search, GitaChat provides a complete browsing experience for all 703 verses of the Bhagavad Gita. Navigate by chapter and verse, read traditional scholarly commentary, and discover related teachings—all in a modern, accessible interface.
+
+<CardGroup cols={2}>
+  <Card title="Complete Text" icon="book">
+    All 703 verses across 18 chapters, fully searchable and browsable
+  </Card>
+  <Card title="Dual Commentary" icon="layer-group">
+    Both AI-generated summaries and traditional scholarly commentary
+  </Card>
+  <Card title="Chapter Organization" icon="list">
+    Navigate by chapter (1-18) and verse number for structured reading
+  </Card>
+  <Card title="Related Verses" icon="link">
+    Discover semantically similar verses for deeper understanding
+  </Card>
+</CardGroup>
+
+---
+
+## The Complete Bhagavad Gita
+
+### Chapter and Verse Structure
+
+The Bhagavad Gita contains **18 chapters** with varying verse counts:
+
+- **Shortest**: Chapter 13 (35 verses)
+- **Longest**: Chapter 18 (78 verses)
+- **Total**: 703 verses
+
+Each verse includes:
+- **Chapter and verse number** (e.g., Chapter 2, Verse 47)
+- **English translation** from authoritative sources
+- **Summarized commentary** (AI-generated)
+- **Full traditional commentary** (when available)
+
+---
+
+## Data Loading and Caching
+
+### Startup Loading
+
+All verses are loaded from Pinecone into memory when the application starts:
+
+```python
+# From main.py:24-56
+def load_all_verses_from_pinecone() -> list[dict]:
+    """Load all verses from Pinecone vector database"""
+    try:
+        verses = []
+        # Pinecone doesn't have a "fetch all" - we query with a dummy vector and high top_k
+        # Since we have ~700 verses, we fetch in batches by chapter
+        for chapter_num in range(1, 19):
+            logging.info(f"Fetching chapter {chapter_num} from Pinecone...")
+            results = index.query(
+                vector=[0] * EMBEDDING_DIMENSION,
+                top_k=100,  # Max verses per chapter is 78 (chapter 18)
+                include_metadata=True,
+                filter={"chapter": chapter_num},
+            )
+            logging.info(f"Chapter {chapter_num}: got {len(results['matches'])} verses")
+
+            for match in results["matches"]:
+                meta = match["metadata"]
+                verses.append(
+                    {
+                        "chapter": meta["chapter"],
+                        "verse": meta["verse"],
+                        "translation": meta["translation"],
+                        "summary": meta.get("summary", "")[:500],
+                    }
+                )
+
+        # Sort by chapter and verse
+        verses.sort(key=lambda v: (v["chapter"], v["verse"]))
+        return verses
+    except Exception as e:
+        logging.error(f"Failed to load verses from Pinecone: {e}")
+        return []
+```
+
+### Why This Approach?
+
+<Note>
+Pinecone is optimized for similarity search, not full data retrieval. The system uses a "dummy vector" (all zeros) with metadata filters to fetch all verses efficiently by chapter.
+</Note>
+
+**Benefits:**
+- **Fast browsing**: No database queries after startup
+- **Instant search**: All verses available in memory
+- **Reduced latency**: No network calls for verse retrieval
+- **Efficient pagination**: Client can slice and filter locally
+
+### Lifespan Management
+
+```python
+# From main.py:59-74
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global all_verses_cache
+    # Load all verses from Pinecone on startup
+    logging.info("Loading all verses from Pinecone...")
+    all_verses_cache = load_all_verses_from_pinecone()
+    logging.info(f"Loaded {len(all_verses_cache)} verses")
+
+    # Load model on startup (before any requests)
+    logging.info("Loading embedding model...")
+    from clients import embedding_model
+
+    # Warm up the model with a dummy query
+    embedding_model.encode("warmup")
+    logging.info("Model loaded and ready!")
+    yield
+```
+
+This ensures:
+- All data loaded before accepting requests
+- No cold start delays for users
+- Predictable memory footprint
+- Graceful shutdown handling
+
+---
+
+## API Endpoints
+
+### Get All Verses
+
+```python
+# From main.py:166-174
+@app.get("/api/all-verses")
+@limiter.limit("10/minute")
+async def get_all_verses(request: Request):
+    """
+    Get all verses for client-side search.
+    Returns chapter, verse, translation, and summary for all 703 verses.
+    """
+    return {"status": "success", "data": all_verses_cache}
+```
+
+**Purpose**: Provides complete verse listing for:
+- Browse-by-chapter interfaces
+- Client-side filtering and search
+- Verse navigation components
+- Chapter summaries and statistics
+
+**Rate Limit**: 10 requests per minute (less frequent than search)
+
+**Response Format**:
+```json
+{
+  "status": "success",
+  "data": [
+    {
+      "chapter": 1,
+      "verse": 1,
+      "translation": "Dhritarashtra said: O Sanjaya...",
+      "summary": "King Dhritarashtra inquires about..."
+    },
+    // ... 702 more verses
+  ]
+}
+```
+
+### Get Specific Verse
+
+```python
+# From main.py:146-163
+@app.post("/api/verse", response_model=dict)
+@limiter.limit("30/minute")
+async def get_specific_verse(request: Request, verse_req: VerseRequest) -> dict:
+    """
+    Get a specific verse by chapter and verse number.
+    """
+    try:
+        from model import get_verse
+
+        result = get_verse(verse_req.chapter, verse_req.verse)
+        if not result:
+            raise HTTPException(status_code=404, detail="Verse not found")
+        return {"status": "success", "data": result}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error fetching verse: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+```
+
+**Purpose**: Fetch a single verse with full commentary
+
+**Input Validation**:
+```python
+# From main.py:105-107
+class VerseRequest(BaseModel):
+    chapter: int = Field(..., ge=1, le=18)
+    verse: int = Field(..., ge=1, le=78)
+```
+
+<Note>
+The validation ensures chapter is between 1-18 and verse is between 1-78 (the maximum in Chapter 18). Requests with invalid ranges are rejected automatically.
+</Note>
+
+---
+
+## Verse Retrieval
+
+### Metadata-Based Lookup
+
+```python
+# From model.py:10-33
+def get_verse(chapter: int, verse: int):
+    """Fetch a specific verse by chapter and verse number."""
+    # Query Pinecone for the specific verse using metadata filter
+    results = index.query(
+        vector=[0] * EMBEDDING_DIMENSION,  # Dummy vector, we're filtering by metadata
+        top_k=1,
+        include_metadata=True,
+        filter={"chapter": chapter, "verse": verse},
+    )
+
+    if not results["matches"]:
+        return None
+
+    metadata = results["matches"][0]["metadata"]
+    result = {
+        "chapter": metadata["chapter"],
+        "verse": metadata["verse"],
+        "translation": metadata["translation"],
+        "summarized_commentary": metadata.get("summary", ""),
+    }
+    # Include full commentary if available
+    if "commentary" in metadata and metadata["commentary"]:
+        result["full_commentary"] = metadata["commentary"]
+    return result
+```
+
+**How It Works:**
+1. Uses dummy vector `[0] * 768` since we're filtering by metadata, not similarity
+2. Applies exact filter: `{"chapter": chapter, "verse": verse}`
+3. Returns top 1 match (which should be unique)
+4. Extracts metadata fields for response
+
+**Returned Data:**
+- `chapter`: Chapter number (1-18)
+- `verse`: Verse number within chapter
+- `translation`: English translation text
+- `summarized_commentary`: AI-generated summary
+- `full_commentary`: Traditional scholarly commentary (if available)
+
+---
+
+## Dual Commentary System
+
+### Summarized Commentary
+
+Generated once during data preparation using GPT-4o-mini:
+
+```python
+# From utils.py:12-31
+def summarize(commentary_text: str) -> str:
+    """Generate a summary of the commentary using GPT-4o-mini."""
+    if not commentary_text or len(commentary_text) < 10:
+        return ""
+
+    response = openai_client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {
+                "role": "system",
+                "content": "You are a helpful assistant that summarizes text concisely but completely.",
+            },
+            {
+                "role": "user",
+                "content": f"Summarize the following commentary: {commentary_text}",
+            },
+        ],
+        max_tokens=500,
+    )
+    return response.choices[0].message.content.strip()
+```
+
+**Characteristics:**
+- **Concise**: Typically 100-200 words
+- **Complete**: Captures key teachings without detail
+- **Fast to read**: Perfect for quick browsing
+- **Pre-computed**: No API call needed at request time
+
+### Full Commentary
+
+Stored in Pinecone metadata from traditional scholarly sources:
+
+**Characteristics:**
+- **Comprehensive**: 500-2000+ words
+- **Scholarly**: From recognized Gita commentators
+- **Contextual**: Includes philosophical and practical explanations
+- **Optional**: Returned only when available
+
+---
+
+## Chapter-Based Navigation
+
+### Efficient Chapter Fetching
+
+The system fetches each chapter individually to handle varying verse counts:
+
+```python
+# From main.py:30-38
+for chapter_num in range(1, 19):
+    logging.info(f"Fetching chapter {chapter_num} from Pinecone...")
+    results = index.query(
+        vector=[0] * EMBEDDING_DIMENSION,
+        top_k=100,  # Max verses per chapter is 78 (chapter 18)
+        include_metadata=True,
+        filter={"chapter": chapter_num},
+    )
+    logging.info(f"Chapter {chapter_num}: got {len(results['matches'])} verses")
+```
+
+**Why `top_k=100`?**
+- Chapter 18 has 78 verses (the maximum)
+- Setting `top_k=100` ensures we capture all verses even if data changes
+- Provides headroom for edge cases or data discrepancies
+
+### Chapter Statistics
+
+| Chapter | Verses | Theme |
+|---------|--------|-------|
+| 1 | 47 | Arjuna's Dilemma |
+| 2 | 72 | Transcendental Knowledge |
+| 3 | 43 | Karma Yoga |
+| 4 | 42 | Transcendental Knowledge |
+| 5 | 29 | Karma Yoga—Action in Krishna Consciousness |
+| 6 | 47 | Dhyana Yoga |
+| 7 | 30 | Knowledge of the Absolute |
+| 8 | 28 | Attaining the Supreme |
+| 9 | 34 | The Most Confidential Knowledge |
+| 10 | 42 | The Opulence of the Absolute |
+| 11 | 55 | The Universal Form |
+| 12 | 20 | Devotional Service |
+| 13 | 35 | Nature, the Enjoyer, and Consciousness |
+| 14 | 27 | The Three Modes of Material Nature |
+| 15 | 20 | The Yoga of the Supreme Person |
+| 16 | 24 | The Divine and Demoniac Natures |
+| 17 | 28 | The Divisions of Faith |
+| 18 | 78 | Conclusion—The Perfection of Renunciation |
+
+---
+
+## Related Verses Discovery
+
+When viewing a specific verse, users can discover related teachings through semantic similarity:
+
+```python
+# From model.py:100-118
+# Related verses (next 3 unique verses)
+related = []
+seen = {(best["chapter"], best["verse"])}
+for match in semantic_matches[1:]:
+    key = (match["chapter"], match["verse"])
+    if key not in seen:
+        related.append(
+            {
+                "chapter": match["chapter"],
+                "verse": match["verse"],
+                "translation": match["translation"],
+                "summarized_commentary": match["summary"],
+            }
+        )
+        seen.add(key)
+        if len(related) >= 3:
+            break
+
+main_result["related"] = related
+```
+
+**How It Works:**
+1. After finding the best match, extract next 3 semantically similar verses
+2. Ensure uniqueness (no duplicate chapter/verse pairs)
+3. Include translation and summary for each
+4. Stop at 3 related verses for optimal UX
+
+**Why 3 Related Verses?**
+- Provides variety without overwhelming
+- Fits well in UI layouts
+- Offers alternative perspectives
+- Maintains focus on primary verse
+
+---
+
+## Performance Optimization
+
+<CardGroup cols={2}>
+  <Card title="Memory Caching" icon="memory">
+    All 703 verses cached in RAM (~1-2MB) for instant access
+  </Card>
+  <Card title="Batch Loading" icon="layer-group">
+    Chapters loaded in parallel during startup for faster initialization
+  </Card>
+  <Card title="Metadata Indexing" icon="database">
+    Pinecone indexes chapter/verse for O(1) lookups
+  </Card>
+  <Card title="Summary Truncation" icon="scissors">
+    Summaries limited to 500 chars in listing to reduce payload size
+  </Card>
+</CardGroup>
+
+### Cache Size Calculation
+
+```
+703 verses × ~2KB per verse (with summary) = ~1.4MB total
+```
+
+This is trivial for modern servers and enables instant browsing.
+
+---
+
+## Search vs. Browse
+
+GitaChat supports two complementary modes:
+
+### Search Mode (Semantic)
+- User asks a question or describes a situation
+- System finds most relevant verse using embeddings
+- Generates contextual commentary specific to query
+- Returns 1 best match + 3 related verses
+
+### Browse Mode (Traditional)
+- User navigates by chapter and verse
+- System retrieves from cache (all verses endpoint)
+- Or fetches specific verse with full commentary
+- Displays pre-computed summaries for quick reading
+
+**When to Use Each:**
+
+| Scenario | Mode | Endpoint |
+|----------|------|----------|
+| "How do I handle stress?" | Search | `/api/query` |
+| "Show me Chapter 2" | Browse | `/api/all-verses` |
+| "Read Chapter 6, Verse 35" | Browse | `/api/verse` |
+| "What does the Gita say about duty?" | Search | `/api/query` |
+
+---
+
+## Data Structure
+
+### In-Memory Cache
+
+```python
+# From main.py:20-21
+# Cache for all verses (loaded once on startup)
+all_verses_cache: list[dict] = []
+```
+
+**Structure:**
+```python
+[
+  {
+    "chapter": 1,
+    "verse": 1,
+    "translation": "...",
+    "summary": "..."  # Truncated to 500 chars
+  },
+  # ... 702 more verses
+]
+```
+
+### Full Verse Response
+
+```python
+{
+  "chapter": 2,
+  "verse": 47,
+  "translation": "You have a right to perform your prescribed duties...",
+  "summarized_commentary": "This verse teaches the principle of karma yoga...",
+  "full_commentary": "In this verse, Lord Krishna instructs Arjuna about..."  # Optional
+}
+```
+
+---
+
+## Error Handling
+
+### Verse Not Found
+
+```python
+# From main.py:155-157
+result = get_verse(verse_req.chapter, verse_req.verse)
+if not result:
+    raise HTTPException(status_code=404, detail="Verse not found")
+```
+
+Returns HTTP 404 if:
+- Invalid chapter/verse combination
+- Data missing from Pinecone
+- Metadata filter returns no matches
+
+### Invalid Input
+
+```python
+# From main.py:105-107
+class VerseRequest(BaseModel):
+    chapter: int = Field(..., ge=1, le=18)
+    verse: int = Field(..., ge=1, le=78)
+```
+
+Pydantic validation rejects:
+- Chapter < 1 or > 18
+- Verse < 1 or > 78
+- Non-integer values
+- Missing required fields
+
+Returns HTTP 422 (Unprocessable Entity) with validation details.
+
+---
+
+## Rate Limiting
+
+Different limits for different use cases:
+
+```python
+# From main.py:116 and 167
+@limiter.limit("30/minute")  # Search queries
+@limiter.limit("10/minute")  # All verses fetch
+```
+
+**Rationale:**
+- **Search (30/min)**: More frequent, interactive use
+- **All verses (10/min)**: Less frequent, typically once per session
+- **Specific verse (30/min)**: Frequent navigation between verses
+
+---
+
+## Future Enhancements
+
+<CardGroup cols={2}>
+  <Card title="Reading Progress" icon="bookmark">
+    Track which verses users have read across sessions
+  </Card>
+  <Card title="Verse Comparison" icon="code-compare">
+    Compare different translations side-by-side
+  </Card>
+  <Card title="Audio Narration" icon="volume-high">
+    Sanskrit pronunciation and English narration
+  </Card>
+  <Card title="Daily Verse" icon="calendar-day">
+    Curated verse recommendation each day
+  </Card>
+  <Card title="Study Plans" icon="graduation-cap">
+    Guided reading paths through related verses
+  </Card>
+  <Card title="Annotations" icon="pen">
+    Let users add personal notes to verses
+  </Card>
+</CardGroup>
+
+---
+
+## Implementation Notes
+
+### Why Dummy Vectors?
+
+```python
+vector=[0] * EMBEDDING_DIMENSION  # All zeros
+```
+
+Pinecone requires a vector for every query, but when using metadata filters exclusively, the vector values don't matter. Using zeros is:
+- **Efficient**: No computation needed
+- **Clear intent**: Signals this is a metadata-only query
+- **Fast**: Minimal data transfer
+
+### Why Not SQL?
+
+Traditional relational databases would be simpler for verse retrieval, but Pinecone provides:
+- **Unified storage**: Embeddings and metadata in one place
+- **Semantic search**: Core feature requires vector database
+- **Scalability**: Cloud-native with automatic scaling
+- **Simplicity**: One database instead of two
+
+The "dummy vector" pattern bridges the gap for traditional lookups.
+
+---
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Semantic Search" icon="magnifying-glass" href="/features/semantic-search">
+    Learn how AI finds the most relevant verses for your questions
+  </Card>
+  <Card title="Contextual Commentary" icon="comments" href="/features/contextual-commentary">
+    Discover how AI generates personalized wisdom for each search
+  </Card>
+</CardGroup>

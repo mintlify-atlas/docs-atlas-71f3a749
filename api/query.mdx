@@ -1,0 +1,147 @@
+---
+title: 'Query Endpoint'
+description: 'Query the Bhagavad Gita and receive contextually relevant verses'
+---
+
+## POST /api/query
+
+Query the Bhagavad Gita with natural language questions. This endpoint uses semantic search to find the most relevant verse and generates contextual commentary tailored to your specific question.
+
+### Request
+
+<ParamField body="query" type="string" required>
+  The user's question or search query. Must be 1-500 characters.
+</ParamField>
+
+### Request Body Example
+
+```json
+{
+  "query": "How do I overcome fear and anxiety?"
+}
+```
+
+### Response
+
+Returns a verse with contextual commentary addressing the user's question.
+
+<ResponseField name="chapter" type="integer">
+  Chapter number (1-18)
+</ResponseField>
+
+<ResponseField name="verse" type="integer">
+  Verse number within the chapter
+</ResponseField>
+
+<ResponseField name="translation" type="string">
+  English translation of the verse
+</ResponseField>
+
+<ResponseField name="summarized_commentary" type="string">
+  AI-generated contextual commentary that addresses the user's specific question
+</ResponseField>
+
+<ResponseField name="full_commentary" type="string">
+  Complete traditional commentary on the verse
+</ResponseField>
+
+### Response Example
+
+```json
+{
+  "chapter": 2,
+  "verse": 47,
+  "translation": "You have the right to perform your prescribed duties, but you are not entitled to the fruits of your actions. Never consider yourself to be the cause of the results of your activities, nor be attached to inaction.",
+  "summarized_commentary": "When facing fear and anxiety, focus on your actions rather than worrying about outcomes. The Gita teaches that we should perform our duties without attachment to results, which reduces anxiety about success or failure.",
+  "full_commentary": "..."
+}
+```
+
+### Error Responses
+
+<ResponseField name="error" type="string">
+  Error message describing what went wrong
+</ResponseField>
+
+| Status Code | Description |
+|-------------|-------------|
+| 400 | Invalid request - query is missing, empty, or too long (>500 characters) |
+| 404 | No matching verses found |
+| 429 | Rate limit exceeded (20 requests per minute) |
+| 500 | Internal server error |
+| 504 | Request timeout (>30 seconds) |
+
+### Rate Limiting
+
+- **Frontend**: 20 requests per minute per client
+- **Backend**: 30 requests per minute per IP address
+
+### Code Examples
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST https://gitachat.org/api/query \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "How do I overcome fear and anxiety?"
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('https://gitachat.org/api/query', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    query: 'How do I overcome fear and anxiety?'
+  })
+});
+
+const data = await response.json();
+console.log(data);
+```
+
+```python Python
+import requests
+
+response = requests.post(
+    'https://gitachat.org/api/query',
+    json={'query': 'How do I overcome fear and anxiety?'}
+)
+
+data = response.json()
+print(data)
+```
+
+```typescript TypeScript
+interface QueryResponse {
+  chapter: number;
+  verse: number;
+  translation: string;
+  summarized_commentary: string;
+  full_commentary?: string;
+}
+
+const response = await fetch('https://gitachat.org/api/query', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    query: 'How do I overcome fear and anxiety?'
+  })
+});
+
+const data: QueryResponse = await response.json();
+```
+
+</CodeGroup>
+
+### Notes
+
+- Query results are automatically saved to the authenticated user's history
+- The contextual commentary is generated using AI to address the specific question
+- If AI commentary generation fails, the endpoint falls back to pre-computed summaries
+- Queries are trimmed of whitespace before processing
