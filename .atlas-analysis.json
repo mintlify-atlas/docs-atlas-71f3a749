@@ -1,0 +1,112 @@
+{
+  "projectType": "saas",
+  "projectName": "GitaChat",
+  "projectDescription": "A semantic search platform that finds relevant verses from the Bhagavad Gita and provides AI-generated contextual guidance based on your questions.",
+  "theme": "almond",
+  "primaryColor": "#a88757",
+  "lightColor": "#554231",
+  "darkColor": "#2b3b39",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/semantic-search",
+              "features/contextual-commentary",
+              "features/verse-reading"
+            ]
+          },
+          {
+            "group": "User Features",
+            "pages": [
+              "user-features/bookmarks",
+              "user-features/history",
+              "user-features/notes",
+              "user-features/daily-verse"
+            ]
+          },
+          {
+            "group": "Integrations",
+            "pages": [
+              "integrations/embeds",
+              "integrations/widgets"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "api/introduction",
+              "api/authentication"
+            ]
+          },
+          {
+            "group": "Endpoints",
+            "pages": [
+              "api/query",
+              "api/verse",
+              "api/all-verses",
+              "api/bookmarks",
+              "api/history",
+              "api/notes",
+              "api/daily-verse"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Development",
+        "groups": [
+          {
+            "group": "Setup",
+            "pages": [
+              "development/local-setup",
+              "development/environment-variables",
+              "development/deployment"
+            ]
+          },
+          {
+            "group": "Architecture",
+            "pages": [
+              "development/tech-stack",
+              "development/vector-search",
+              "development/ai-commentary"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Semantic search across 700+ Bhagavad Gita verses using vector embeddings",
+    "AI-generated contextual commentary tailored to user questions",
+    "User authentication with bookmarks, notes, and search history",
+    "Daily verse delivery via email subscriptions",
+    "Embeddable widgets and verse sharing",
+    "Traditional and contextual commentary side-by-side"
+  ],
+  "publicApiSurface": [
+    "POST /api/query - Search for relevant verses",
+    "POST /api/verse - Get specific verse by chapter and number",
+    "GET /api/all-verses - Retrieve all verses for client-side search",
+    "GET /api/bookmarks - User bookmarks",
+    "GET /api/history - User search history",
+    "GET /api/notes - User notes",
+    "GET /api/daily - Daily verse",
+    "POST /api/generate-image - Generate verse images"
+  ]
+}
